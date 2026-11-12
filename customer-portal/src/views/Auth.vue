@@ -1,13 +1,12 @@
 <template>
-	<div class="page-auth">
-		<div v-if="!isLogged" class="wrapper flex justify-center">
-			<div v-if="align === 'right'" class="image-box basis-2/3" />
-			<div class="form-box flex basis-1/3 items-center justify-center" :class="{ centered: align === 'center' }">
+	<main class="page-auth">
+		<div v-if="!isLogged" class="auth-layout">
+			<div class="form-box">
 				<AuthForm :type />
 			</div>
-			<div v-if="align === 'left'" class="image-box basis-2/3"></div>
+			<div class="auth-visual" aria-hidden="true" />
 		</div>
-	</div>
+	</main>
 </template>
 
 <script lang="ts" setup>
@@ -16,9 +15,6 @@ import { computed, onBeforeMount, ref, toRefs } from "vue"
 import { useRoute } from "vue-router"
 import AuthForm from "@/components/auth/AuthForm.vue"
 import { useAuthStore } from "@/stores/auth"
-import { useThemeStore } from "@/stores/theme"
-
-type Align = "left" | "center" | "right"
 
 const props = defineProps<{
 	formType?: FormType
@@ -26,11 +22,8 @@ const props = defineProps<{
 const { formType } = toRefs(props)
 
 const route = useRoute()
-const align = ref<Align>("left")
 const type = ref<FormType | undefined>(formType.value || undefined)
 
-const themeStore = useThemeStore()
-const activeColor = computed(() => themeStore.style["primary-color"])
 const authStore = useAuthStore()
 const isLogged = computed(() => authStore.isLogged)
 
@@ -45,71 +38,58 @@ onBeforeMount(() => {
 <style lang="scss" scoped>
 .page-auth {
 	min-height: 100svh;
+	background: var(--bg-body-color);
+}
 
-	.wrapper {
-		min-height: 100svh;
+.auth-layout {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+	min-height: 100svh;
+}
 
-		.image-box {
-			position: relative;
-			background-color: v-bind(activeColor);
+.form-box {
+	display: grid;
+	place-items: center;
+	min-width: 0;
+	padding: clamp(1.5rem, 5vw, 4rem);
+	background: var(--bg-default-color, var(--bg-body-color));
+}
 
-			&::after {
-				content: "";
-				width: 100%;
-				height: 100%;
-				position: absolute;
-				top: 0;
-				left: 0;
-				background-image: url(@/assets/images/customer-portal-login.webp);
-				background-size: cover;
-				background-position: center center;
-			}
+.auth-visual {
+	position: relative;
+	overflow: hidden;
+	border-inline-start: 1px solid var(--border-color);
+	background: radial-gradient(ellipse at 72% 38%, #234979 0%, transparent 68%), #111c2c;
+}
 
-			/*
-				video {
-					position: absolute;
-					top: 0;
-					left: 0;
-					width: 100%;
-					height: 100%;
-					object-fit: cover;
-					object-position: center;
-				}
-				*/
-		}
+.auth-visual::before {
+	position: absolute;
+	inset: 0;
+	background:
+		linear-gradient(to right, #a7c8f21c 1px, transparent 1px),
+		linear-gradient(to bottom, #a7c8f21c 1px, transparent 1px);
+	background-size: 42px 42px;
+	mask-image: radial-gradient(ellipse at 72% 40%, #000 18%, transparent 78%);
+	content: "";
+}
 
-		.form-box {
-			padding: 50px;
+.auth-visual::after {
+	position: absolute;
+	inset-inline-start: 12%;
+	inset-block-end: 15%;
+	width: 4rem;
+	height: 3px;
+	background: #ed3237;
+	content: "";
+}
 
-			&.centered {
-				flex-basis: 100%;
-
-				.form-wrap {
-					padding: 60px;
-					width: 100%;
-					max-width: 500px;
-				}
-
-				@media (max-width: 600px) {
-					padding: 4%;
-					.form-wrap {
-						padding: 8%;
-					}
-				}
-			}
-		}
+@media (max-width: 820px) {
+	.auth-layout {
+		grid-template-columns: minmax(0, 1fr);
 	}
 
-	@media (max-width: 800px) {
-		.wrapper {
-			.image-box {
-				display: none;
-			}
-
-			.form-box {
-				flex-basis: 100%;
-			}
-		}
+	.auth-visual {
+		display: none;
 	}
 }
 </style>

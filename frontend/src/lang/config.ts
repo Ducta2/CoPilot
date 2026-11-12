@@ -16,7 +16,8 @@ export function getI18NConf() {
 
 	return {
 		legacy: false,
-		locale: "en",
+		locale: typeof navigator !== "undefined" && /^vi(?:-|$)/i.test(navigator.language) ? "vi" : "en",
+		fallbackLocale: "en",
 		messages
 	} satisfies I18nOptions
 }

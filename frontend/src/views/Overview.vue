@@ -5,14 +5,19 @@
 			<VersionUpdateBanner />
 		</div>
 
-		<div class="section flex justify-between gap-3">
+		<h1 class="font-display mb-4 text-2xl font-semibold">{{ t("tmgs.overview") }}</h1>
+		<div class="section overview-controls flex flex-wrap items-center justify-between gap-3">
 			<div class="flex items-center gap-3">
 				<div class="flex items-center gap-2">
-					<div class="text-secondary min-w-22 text-xs">Use Global Customer Filter</div>
-					<n-switch v-model:value="useGlobalCustomerFilterToggle" size="small" />
+					<span id="overview-scope-label" class="text-secondary text-xs">{{ t("tmgs.filter") }}</span>
+					<n-switch
+						v-model:value="useGlobalCustomerFilterToggle"
+						size="small"
+						aria-labelledby="overview-scope-label"
+					/>
 				</div>
 			</div>
-			<div class="hidden items-center gap-3 @[77rem]:flex">
+			<div class="hidden flex-wrap items-center gap-2 @[1100px]:flex">
 				<StackProvisioningButton size="small" type="primary" secondary />
 				<CloudSecurityAssessmentButton size="small" type="primary" secondary />
 				<WebVulnerabilityAssessmentButton size="small" type="primary" secondary />
@@ -20,30 +25,30 @@
 				<ActiveResponseWizardButton size="small" type="primary" secondary />
 				<ThreatIntelButton size="small" type="primary" secondary />
 			</div>
-			<div class="mobile-box block @[77rem]:hidden">
+			<div class="mobile-box block @[1100px]:hidden">
 				<n-button size="small" type="primary" secondary @click="showQuickActions = true">
 					<template #icon>
 						<Icon :name="QuickActionsIcon" />
 					</template>
-					Quick Actions
+					{{ t("tmgs.actions") }}
 				</n-button>
 			</div>
 		</div>
 		<div class="section">
-			<div class="grid grid-flow-row-dense grid-cols-12 gap-6">
-				<div class="xs:col-span-12 col-span-12 sm:col-span-4 min-[75rem]:col-span-2">
+			<div class="grid grid-cols-1 gap-4 @[440px]:grid-cols-2 @[720px]:grid-cols-3 @[1040px]:grid-cols-5">
+				<div class="min-w-0">
 					<AgentsCard class="h-full" :customer-codes="effectiveCustomerCodes" />
 				</div>
-				<div class="xs:col-span-6 col-span-12 sm:col-span-4 min-[75rem]:col-span-2">
+				<div class="min-w-0">
 					<HealthcheckCard class="h-full" />
 				</div>
-				<div class="xs:col-span-6 col-span-12 sm:col-span-4 min-[75rem]:col-span-2">
+				<div class="min-w-0">
 					<CustomersCard class="h-full" />
 				</div>
-				<div class="col-span-12 sm:col-span-6 min-[75rem]:col-span-3">
+				<div class="min-w-0">
 					<IncidentAlerts class="h-full" :customer-codes="effectiveCustomerCodes" />
 				</div>
-				<div class="col-span-12 sm:col-span-6 min-[75rem]:col-span-3">
+				<div class="min-w-0">
 					<IncidentCases class="h-full" :customer-codes="effectiveCustomerCodes" />
 				</div>
 			</div>
@@ -72,7 +77,7 @@
 			:trap-focus="false"
 			display-directive="show"
 		>
-			<n-drawer-content title="Quick Actions" closable :native-scrollbar="false">
+			<n-drawer-content :title="t('tmgs.actions')" closable :native-scrollbar="false">
 				<div class="flex flex-col gap-3">
 					<StackProvisioningButton size="small" type="primary" />
 					<CloudSecurityAssessmentButton size="small" type="primary" />
@@ -90,6 +95,7 @@
 import { useResizeObserver } from "@vueuse/core"
 import { NButton, NDrawer, NDrawerContent, NSwitch } from "naive-ui"
 import { computed, defineAsyncComponent, onMounted, ref } from "vue"
+import { useI18n } from "vue-i18n"
 import ActiveResponseWizardButton from "@/components/activeResponse/ActiveResponseWizardButton.vue"
 import CloudSecurityAssessmentButton from "@/components/cloudSecurityAssessment/CloudSecurityAssessmentButton.vue"
 import Icon from "@/components/common/Icon.vue"
@@ -111,6 +117,7 @@ import { useNavigation } from "@/composables/useNavigation"
 
 const ThreatIntelButton = defineAsyncComponent(() => import("@/components/threatIntel/ThreatIntelButton.vue"))
 
+const { t } = useI18n()
 const QuickActionsIcon = "ant-design:thunderbolt-outlined"
 const page = ref()
 const cardDirection = ref<"horizontal" | "vertical">("horizontal")
@@ -139,6 +146,11 @@ onMounted(() => {
 
 <style lang="scss" scoped>
 .page {
+	.overview-controls {
+		padding-block: 0.8rem;
+		border-block: 1px solid var(--border-color);
+	}
+
 	.section {
 		margin-bottom: calc(var(--spacing) * 6);
 

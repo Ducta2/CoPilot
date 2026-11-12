@@ -4,12 +4,12 @@
 		<n-collapse-transition :show="!show2fa">
 			<div class="flex flex-col">
 				<n-form ref="formRef" :model :rules>
-					<n-form-item path="username" label="Username">
+					<n-form-item path="username" :label="t('tmgs.username')">
 						<div class="flex w-full items-end gap-3">
 							<n-input
 								v-model:value="model.username"
 								class="w-full! grow"
-								placeholder="Insert your username"
+								:placeholder="t('tmgs.usernameHint')"
 								:input-props="{ autocomplete: 'username' }"
 								size="large"
 								@keydown.enter="signIn"
@@ -25,12 +25,12 @@
 						</div>
 					</n-form-item>
 
-					<n-form-item path="password" label="Password">
+					<n-form-item path="password" :label="t('tmgs.password')">
 						<n-input
 							v-model:value="model.password"
 							type="password"
 							show-password-on="click"
-							placeholder="Insert your password"
+							:placeholder="t('tmgs.passwordHint')"
 							:input-props="{ autocomplete: 'password' }"
 							size="large"
 							@keydown.enter="signIn"
@@ -47,7 +47,7 @@
 								:disabled="!isValid"
 								@click="signIn"
 							>
-								Sign in with password
+								{{ t("tmgs.signIn") }}
 							</n-button>
 						</div>
 					</div>
@@ -56,7 +56,7 @@
 				<CollapseKeepAlive :show="ssoAvailable">
 					<div class="flex flex-col">
 						<n-divider>
-							<span class="text-secondary text-xs">or sign in with</span>
+							<span class="text-secondary text-xs">{{ t("tmgs.sso") }}</span>
 						</n-divider>
 						<SsoOptions
 							@show2fa-form="handleShow2faForm"
@@ -79,6 +79,7 @@ import type { FormInst, FormRules, FormValidationError } from "naive-ui"
 import type { LoginPayload } from "@/types/auth"
 import { NButton, NCollapseTransition, NDivider, NForm, NFormItem, NInput, useMessage } from "naive-ui"
 import { computed, onBeforeMount, ref, watch } from "vue"
+import { useI18n } from "vue-i18n"
 import { useRouter } from "vue-router"
 import CollapseKeepAlive from "@/components/common/CollapseKeepAlive.vue"
 import { useAuthStore } from "@/stores/auth"
@@ -91,6 +92,7 @@ interface ModelType {
 	password: string | null
 }
 
+const { t } = useI18n()
 const router = useRouter()
 const authStore = useAuthStore()
 const message = useMessage()

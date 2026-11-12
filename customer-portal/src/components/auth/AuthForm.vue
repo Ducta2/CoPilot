@@ -2,10 +2,7 @@
 	<div class="w-full max-w-96 min-w-64">
 		<div class="flex flex-col items-start">
 			<Logo class="mb-4" max-height="40px" />
-			<div class="font-display mb-4 text-4xl font-bold" data-test="login-title">{{ portalTitle }}</div>
-			<div class="text-secondary text-lg">
-				Access the world of OpenSource security: Simplified, Streamlined, Accessible.
-			</div>
+			<h1 class="font-display mb-5 text-3xl font-semibold" data-test="login-title">{{ portalTitle }}</h1>
 		</div>
 
 		<transition name="form-fade" mode="out-in" appear class="my-10">
@@ -29,7 +26,7 @@ const type = ref<FormType>("signin")
 
 const portalSettingsStore = usePortalSettingsStore()
 
-const portalTitle = computed(() => portalSettingsStore.portalTitle || "SOCFortress Customer Portal")
+const portalTitle = computed(() => portalSettingsStore.portalTitle || "TMGS SOC · Customer Portal")
 
 onBeforeMount(() => {
 	if (props.type) {

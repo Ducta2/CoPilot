@@ -1,13 +1,11 @@
 <template>
-	<div class="w-full max-w-96 min-w-64">
+	<div class="w-full max-w-96">
 		<div>
-			<Logo type="small" class="mb-4" max-height="40px" />
-			<div class="font-display mb-4 text-4xl font-bold" data-test="login-title">
-				{{ title }}
+			<div class="mb-6 flex items-center justify-between gap-3">
+				<Logo type="small" max-height="42px" class="login-logo" />
+				<LocaleSwitch />
 			</div>
-			<div class="text-secondary text-lg">
-				Access the world of OpenSource security: Simplified, Streamlined, Accessible.
-			</div>
+			<h1 class="font-display mb-5 text-3xl font-semibold" data-test="login-title">{{ title }}</h1>
 		</div>
 
 		<transition name="transition-fade-move" mode="out-in" appear class="my-10">
@@ -19,7 +17,9 @@
 <script lang="ts" setup>
 import type { FormType } from "./types.d"
 import { computed, onBeforeMount, ref } from "vue"
+import { useI18n } from "vue-i18n"
 import Logo from "@/app-layouts/common/Logo.vue"
+import LocaleSwitch from "@/app-layouts/common/Toolbar/LocaleSwitch.vue"
 import SignIn from "./SignIn.vue"
 
 const props = defineProps<{
@@ -27,13 +27,8 @@ const props = defineProps<{
 }>()
 
 const type = ref<FormType>("signin")
-const title = computed<string>(() =>
-	type.value === "signin"
-		? "SOCFortress CoPilot"
-		: type.value === "signup"
-			? "SOCFortress CoPilot"
-			: "Forgot Password"
-)
+const { t } = useI18n()
+const title = computed(() => (type.value === "signin" || type.value === "signup" ? "TMGS SOC" : t("tmgs.forgot")))
 
 onBeforeMount(() => {
 	if (props.type) {
@@ -41,3 +36,9 @@ onBeforeMount(() => {
 	}
 })
 </script>
+
+<style scoped>
+.login-logo :deep(img) {
+	max-width: 6rem;
+}
+</style>

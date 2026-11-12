@@ -100,7 +100,7 @@ async function loadPreviews() {
 				if (hit) return hit
 				// The dev fixture has no server side; it draws its own pages so this tab
 				// still exercises the real fetch → object-URL → revoke path.
-				if (USE_MOCK_ANALYSIS && jid === MOCK_JOB_ID) {
+				if (import.meta.env.DEV && USE_MOCK_ANALYSIS && jid === MOCK_JOB_ID) {
 					const blob = await mockPreview(name)
 					cachePut(ck, blob)
 					return blob

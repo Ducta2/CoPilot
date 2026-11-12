@@ -295,7 +295,7 @@ function start() {
 
 	// Dev fixture: one job id renders a fully-populated analysis so every panel on
 	// this page can be reviewed at once. No real sample fills them all.
-	if (USE_MOCK_ANALYSIS && props.jobId === MOCK_JOB_ID) {
+	if (import.meta.env.DEV && USE_MOCK_ANALYSIS && props.jobId === MOCK_JOB_ID) {
 		// Resolved after a beat rather than synchronously: the fixture exists to review
 		// this page, and a mock that lands instantly is the one state the real page
 		// never has — the loading path would go unreviewed.
