@@ -41,17 +41,17 @@ export function getDefaultState() {
 			// Parameters to be adjusted based on the breakpoint
 			override: {
 				viewPadding: {
-					desk: 40, // View padding for desktop
-					mobile: 20 // View padding for mobile devices
+					desk: 24, // View padding for desktop
+					mobile: 16 // View padding for mobile devices
 				},
 				toolbarHeight: {
-					desk: 80, // Height of the toolbar for desktop
+					desk: 64, // Height of the toolbar for desktop
 					mobile: 70 // Height of the toolbar for mobile devices
 				}
 			}
 		},
-		toolbarHeight: 80, // Default toolbar height (in pixels)
-		viewPadding: 40, // Default view padding (in pixels)
+		toolbarHeight: 64, // Default toolbar height (in pixels)
+		viewPadding: 24, // Default view padding (in pixels)
 		headerBarHeight: 60, // Height of the header bar (in pixels)
 		colors: tokens.colors, // Color definitions from the token
 		borderRadius: tokens.borderRadius, // Border radius from the token
@@ -87,6 +87,8 @@ export function getThemeOverrides(state: ThemeState): GlobalThemeOverrides {
 	const borderColor = border
 	const hoverColor = hover
 
+	const primaryButtonText = state.themeName === ThemeNameEnum.Dark ? "#101B2C" : "#FFFFFF"
+
 	return {
 		common: {
 			...themeColors,
@@ -94,6 +96,7 @@ export function getThemeOverrides(state: ThemeState): GlobalThemeOverrides {
 			textColor1: text,
 			textColor2: text,
 			textColor3: textTertiary,
+			placeholderColor: textTertiary,
 			bodyColor: bodyBackground,
 			baseColor: background,
 			popoverColor: background,
@@ -118,6 +121,12 @@ export function getThemeOverrides(state: ThemeState): GlobalThemeOverrides {
 			closeMargin: "10px",
 			fontSize: "14px",
 			lineHeight: "1.2"
+		},
+		Button: {
+			textColorPrimary: primaryButtonText,
+			textColorHoverPrimary: primaryButtonText,
+			textColorPressedPrimary: primaryButtonText,
+			textColorFocusPrimary: primaryButtonText
 		},
 		Card: {
 			color: background,

@@ -1,0 +1,25 @@
+{
+	"locales": {
+		"en": "English",
+		"vi": "Tiếng Việt",
+		"de": "Deutsch",
+		"es": "Español",
+		"fr": "Français",
+		"it": "Italiano",
+		"jp": "日本語"
+	},
+	"tmgs": {
+		"language": "Ngôn ngữ",
+		"menu": "Mở điều hướng",
+		"signIn": "Đăng nhập bằng mật khẩu",
+		"username": "Tên đăng nhập",
+		"password": "Mật khẩu",
+		"usernameHint": "Nhập tên đăng nhập",
+		"passwordHint": "Nhập mật khẩu",
+		"sso": "hoặc đăng nhập bằng",
+		"overview": "Tổng quan SOC",
+		"filter": "Áp dụng bộ lọc khách hàng chung",
+		"actions": "Thao tác nhanh",
+		"forgot": "Quên mật khẩu"
+	}
+}

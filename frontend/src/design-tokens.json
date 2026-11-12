@@ -4,11 +4,11 @@
 		"small": "4px"
 	},
 	"lineHeight": {
-		"default": "1.25"
+		"default": "1.45"
 	},
 	"fontSize": {
-		"default": "16px",
-		"cardTitle": "18px"
+		"default": "14px",
+		"cardTitle": "16px"
 	},
 	"fontWeight": {
 		"default": "400",
@@ -16,8 +16,8 @@
 		"cardTitle": "600"
 	},
 	"fontFamily": {
-		"default": "'Public Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol'",
-		"display": "'Lexend', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol'",
+		"default": "'Be Vietnam Pro', system-ui, 'Segoe UI', sans-serif",
+		"display": "'Be Vietnam Pro', system-ui, 'Segoe UI', sans-serif",
 		"mono": "'JetBrains Mono', SFMono-Regular, Menlo, Consolas, Courier, monospace"
 	},
 	"typography": {
@@ -65,17 +65,17 @@
 	},
 	"colors": {
 		"light": {
-			"sidebarBackground": "rgb(255, 255, 255)",
-			"bodyBackground": "rgb(245, 247, 249)",
-			"background": "rgb(255, 255, 255)",
-			"backgroundSecondary": "rgb(250, 251, 252)",
-			"backgroundTertiary": "rgb(240, 242, 244)",
-			"text": "rgb(0, 0, 0)",
-			"textSecondary": "rgb(73, 84, 101)",
-			"textTertiary": "rgb(114, 115, 115)",
-			"border": "rgb(226, 230, 233)",
-			"hover": "rgba(221, 224, 225, 0.5)",
-			"primary": "rgb(219, 157, 0)",
+			"sidebarBackground": "#F9FBFD",
+			"bodyBackground": "#EEF2F7",
+			"background": "#FFFFFF",
+			"backgroundSecondary": "#F7F9FC",
+			"backgroundTertiary": "#E6EDF5",
+			"text": "#162235",
+			"textSecondary": "#42546B",
+			"textTertiary": "#566A82",
+			"border": "#CCD6E3",
+			"hover": "rgba(34, 86, 165, 0.09)",
+			"primary": "#2256A5",
 			"info": "rgb(98, 103, 255)",
 			"success": "rgb(0, 178, 123)",
 			"warning": "rgb(227, 194, 47)",
@@ -86,17 +86,17 @@
 			"extra4": "rgb(255, 1, 86)"
 		},
 		"dark": {
-			"sidebarBackground": "rgb(29, 31, 37)",
-			"bodyBackground": "rgb(20, 22, 26)",
-			"background": "rgb(38, 40, 45)",
-			"backgroundSecondary": "rgb(29, 31, 37)",
-			"backgroundTertiary": "rgb(20, 22, 26)",
-			"text": "rgb(255, 255, 255)",
-			"textSecondary": "rgb(172, 181, 190)",
-			"textTertiary": "rgb(116, 126, 136)",
-			"border": "rgb(67, 68, 76)",
-			"hover": "rgba(59, 61, 68, 0.5)",
-			"primary": "rgb(255, 182, 0)",
+			"sidebarBackground": "#111C2C",
+			"bodyBackground": "#0D1522",
+			"background": "#172233",
+			"backgroundSecondary": "#1D2B3E",
+			"backgroundTertiary": "#253448",
+			"text": "#F2F5FA",
+			"textSecondary": "#CAD6E6",
+			"textTertiary": "#A4B5CA",
+			"border": "#344559",
+			"hover": "rgba(128, 182, 244, 0.12)",
+			"primary": "#80B6F4",
 			"info": "rgb(98, 103, 255)",
 			"success": "rgb(0, 225, 155)",
 			"warning": "rgb(227, 194, 47)",

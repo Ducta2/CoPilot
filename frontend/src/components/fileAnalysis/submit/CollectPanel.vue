@@ -249,7 +249,7 @@ function loadAgents() {
 	}
 	agentsLoading.value = true
 
-	if (USE_MOCK_COLLECT) {
+	if (import.meta.env.DEV && USE_MOCK_COLLECT) {
 		mockListAgents()
 			.then(list => (agents.value = list))
 			.finally(() => (agentsLoading.value = false))
@@ -278,7 +278,7 @@ function findFiles() {
 	finding.value = true
 	findError.value = null
 
-	if (USE_MOCK_COLLECT) {
+	if (import.meta.env.DEV && USE_MOCK_COLLECT) {
 		mockEnumerate(targetPath.value)
 			.then(list => {
 				matches.value = list
@@ -321,7 +321,7 @@ async function analyzeSelected() {
 		// id the backend has never heard of, and the result view would poll a 404.
 		// What is worth checking at this point is the payload, so it is reported
 		// instead. Swap the message for `emit("started", ids)` to exercise routing.
-		if (USE_MOCK_COLLECT) {
+		if (import.meta.env.DEV && USE_MOCK_COLLECT) {
 			const ids = await mockSubmit(selectedPaths.value)
 			const tiers = props.sandbox ? "static + dynamic" : "static only"
 			message.info(

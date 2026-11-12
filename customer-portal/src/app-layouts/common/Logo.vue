@@ -1,6 +1,6 @@
 <template>
 	<div class="logo">
-		<img :src="portalLogo || portalLogoInitials" :alt="portalTitle" :aria-label="portalTitle" class="logo-image" />
+		<img :src="logoSrc" :alt="portalTitle" :aria-label="portalTitle" class="logo-image" />
 	</div>
 </template>
 
@@ -20,7 +20,11 @@ const portalSettingsStore = usePortalSettingsStore()
 
 const portalTitle = computed(() => portalSettingsStore.portalTitle || "Customer Portal")
 const portalLogo = computed(() => portalSettingsStore.portalLogo)
-const portalLogoInitials = computed(() => portalSettingsStore.portalLogoInitials)
+const logoSrc = computed(
+	() =>
+		portalLogo.value ||
+		(portalSettingsStore.portalTitle ? portalSettingsStore.portalLogoInitials : "/tmgs/tmgs.svg")
+)
 </script>
 
 <style lang="scss" scoped>

@@ -1,13 +1,20 @@
 <template>
 	<header class="toolbar" :class="{ boxed }">
 		<div class="wrap flex items-center justify-end gap-3">
-			<div class="logo-box flex cursor-pointer items-center gap-2" @click="openNav()">
+			<button
+				type="button"
+				class="logo-box flex cursor-pointer items-center gap-1"
+				:aria-label="t('tmgs.menu')"
+				aria-controls="app-sidebar"
+				@click="openNav()"
+			>
 				<Logo type="small" />
 				<Icon :size="20" name="carbon:chevron-right" />
-			</div>
+			</button>
 
 			<Breadcrumb class="grow" />
 			<PinnedPages />
+			<LocaleSwitch />
 
 			<PillWrapper>
 				<Search />
@@ -24,6 +31,7 @@
 </template>
 
 <script lang="ts" setup>
+import { useI18n } from "vue-i18n"
 import BlurEffect from "@/components/common/BlurEffect.vue"
 import Icon from "@/components/common/Icon.vue"
 import { useThemeStore } from "@/stores/theme"
@@ -31,6 +39,7 @@ import Logo from "../Logo.vue"
 import Avatar from "./Avatar.vue"
 import Breadcrumb from "./Breadcrumb.vue"
 import FullscreenSwitch from "./FullscreenSwitch.vue"
+import LocaleSwitch from "./LocaleSwitch.vue"
 import Notifications from "./Notifications.vue"
 import PillWrapper from "./PillWrapper.vue"
 import PinnedPages from "./PinnedPagesV2.vue"
@@ -42,6 +51,7 @@ const { boxed, gradient } = defineProps<{
 	gradient?: "body" | "sidebar"
 }>()
 
+const { t } = useI18n()
 const themeStore = useThemeStore()
 const openNav = () => themeStore.openSidebar()
 </script>
@@ -56,7 +66,8 @@ const openNav = () => themeStore.openSidebar()
 	max-width: 100%;
 	padding: 0 var(--view-padding);
 	z-index: 3;
-	overflow: hidden;
+	background: var(--bg-sidebar-color);
+	border-bottom: 1px solid var(--border-color);
 
 	.wrap {
 		height: var(--toolbar-height);

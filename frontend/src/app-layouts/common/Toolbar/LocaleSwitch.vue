@@ -1,52 +1,33 @@
 <template>
-	<n-popselect v-model:value="currentLocale" :options="list" :render-label>
-		<Icon :size="19" :name="MultiLanguageIcon" />
-	</n-popselect>
+	<select v-model="currentLocale" class="locale-switch" :aria-label="t('tmgs.language')">
+		<option v-for="locale in localesStore.availableLocales" :key="locale" :value="locale">
+			{{ t(`locales.${locale}`, locale) }}
+		</option>
+	</select>
 </template>
 
 <script lang="ts" setup>
-import type { SelectOption } from "naive-ui"
-import type { VNodeChild } from "vue"
-import { NPopselect } from "naive-ui"
-import { computed, h } from "vue"
+import { computed } from "vue"
 import { useI18n } from "vue-i18n"
-import Icon from "@/components/common/Icon.vue"
 import { useLocalesStore } from "@/stores/i18n"
 
-const MultiLanguageIcon = "ion:language-outline"
-const localesStore = useLocalesStore()
-const { setLocale } = localesStore
 const { t } = useI18n()
-
-const list = computed(() =>
-	localesStore.availableLocales.map(i => ({
-		label: i,
-		value: i
-	}))
-)
-
+const localesStore = useLocalesStore()
 const currentLocale = computed({
 	get: () => localesStore.locale,
-	set: v => setLocale(v)
+	set: locale => localesStore.setLocale(locale)
 })
-
-function renderLabel(option: SelectOption): VNodeChild {
-	return [
-		h(Icon, {
-			color: "#000",
-			style: {
-				verticalAlign: "-0.15em",
-				marginRight: "8px"
-			},
-			name: `circle-flags:${option.label}`
-		}),
-		h(
-			"span",
-			{},
-			{
-				default: () => t(`locales.${option.label}`, `${option.label}`)
-			}
-		)
-	]
-}
 </script>
+
+<style scoped>
+.locale-switch {
+	max-width: 7rem;
+	min-height: 2rem;
+	padding: 0.2rem 0.35rem;
+	border: 1px solid var(--border-color);
+	border-radius: 0.35rem;
+	background: var(--bg-body-color);
+	color: inherit;
+	font-size: 0.75rem;
+}
+</style>
