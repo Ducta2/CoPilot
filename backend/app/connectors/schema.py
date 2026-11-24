@@ -4,6 +4,8 @@ from typing import Optional
 
 from pydantic import BaseModel
 from pydantic import ConfigDict
+from pydantic import Field
+from pydantic import model_validator
 
 
 class ConnectorHistoryResponse(BaseModel):
@@ -38,14 +40,35 @@ class ConnectorResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class ConnectorPublicResponse(ConnectorResponse):
+    """A connector as the API returns it: stored secrets never leave the backend.
+
+    ``ConnectorResponse`` stays the internal shape (verification and provisioning code
+    reads the password / API key from it). Routes answer with this model instead, so
+    the plaintext ``connector_password`` and ``connector_api_key`` are dropped from the
+    JSON and replaced by ``*_set`` flags the UI can show ("a password is stored").
+    """
+
+    connector_password: Optional[str] = Field(default=None, exclude=True)
+    connector_api_key: Optional[str] = Field(default=None, exclude=True)
+    connector_password_set: bool = False
+    connector_api_key_set: bool = False
+
+    @model_validator(mode="after")
+    def _flag_stored_secrets(self) -> "ConnectorPublicResponse":
+        self.connector_password_set = bool(self.connector_password)
+        self.connector_api_key_set = bool(self.connector_api_key)
+        return self
+
+
 class ConnectorsListResponse(BaseModel):
-    connectors: List[ConnectorResponse]
+    connectors: List[ConnectorPublicResponse]
     success: bool
     message: str
 
 
 class ConnectorListResponse(BaseModel):
-    connector: ConnectorResponse
+    connector: ConnectorPublicResponse
     success: bool
     message: str
 
@@ -56,6 +79,9 @@ class VerifyConnectorResponse(BaseModel):
 
 
 class UpdateConnector(BaseModel):
+    """Connector update. A secret left out (or sent empty) keeps the stored value:
+    the API no longer returns secrets, so a client cannot echo them back."""
+
     connector_url: str
     connector_username: Optional[str] = None
     connector_password: Optional[str] = None
