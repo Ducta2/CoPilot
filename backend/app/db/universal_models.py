@@ -1382,3 +1382,34 @@ class CustomerPortalSocRequest(SQLModel, table=True):
     # Who answered, for the SOC; never sent to the portal.
     answered_by: Optional[str] = Field(default=None, max_length=256, nullable=True)
     answered_via: Optional[str] = Field(default=None, max_length=16, nullable=True)  # comment | manual
+
+
+class SelfServiceEdrPackage(SQLModel, table=True):
+    """An EDR installer package a customer issued itself (Self Service, Level 1).
+
+    Level 1 keeps the record only: the install command still uses the customer's shared
+    enrollment password, so neither ``expires_at`` nor ``max_installs`` is enforced on the
+    monitoring server, and revoking only hides the package. ``status`` is not stored: it is
+    computed when read (``revoked`` if ``revoked_at``, ``expired`` past ``expires_at``, else
+    ``active``), so no scheduled job has to flip it. ``enrolled`` stays 0 until the agent sync
+    counts enrollments (design section 6, not built yet). Times are naive UTC.
+    Read and written through ``self_service/services/edr_packages.py``.
+    """
+
+    __tablename__ = "self_service_edr_packages"
+
+    id: str = Field(sa_column=Column(String(20), primary_key=True))  # PKG- + 8 base32 characters
+    # CASCADE: deleting a customer deletes its packages, and a plain FK would block it.
+    customer_code: str = Field(
+        sa_column=Column(String(50), ForeignKey("customers.customer_code", ondelete="CASCADE"), nullable=False, index=True),
+    )
+    platform: str = Field(max_length=16, nullable=False)  # windows | linux | macos
+    arch: str = Field(max_length=16, nullable=False)  # x64 | arm64 | x86
+    group: str = Field(max_length=64, nullable=False)
+    max_installs: int = Field(nullable=False)
+    enrolled: int = Field(default=0, nullable=False)
+    created_by: str = Field(max_length=256, nullable=False)
+    created_at: datetime = Field(nullable=False)
+    expires_at: datetime = Field(nullable=False)
+    revoked_at: Optional[datetime] = Field(default=None, nullable=True)
+    revoked_by: Optional[str] = Field(default=None, max_length=256, nullable=True)

@@ -76,6 +76,9 @@ class AuditAction(str, Enum):
     SOC_REQUEST_CREATE = "soc_request.create"
     SOC_REQUEST_ANSWER = "soc_request.answer"
     SOC_REQUEST_SETTINGS_UPDATE = "soc_request.settings_update"
+    # Self Service: EDR installer packages a customer issues and revokes itself (Level 1).
+    SELF_SERVICE_EDR_PACKAGE_CREATE = "self_service.edr_package_create"
+    SELF_SERVICE_EDR_PACKAGE_REVOKE = "self_service.edr_package_revoke"
 
 
 class AuditResult(str, Enum):
