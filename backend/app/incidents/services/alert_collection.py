@@ -1,14 +1,12 @@
 from typing import List
+from typing import Optional
 from typing import Tuple
 
+from elasticsearch7 import AsyncElasticsearch
 from loguru import logger
 
-from app.connectors.wazuh_indexer.utils.universal import (
-    create_wazuh_indexer_client_async,
-)
-from app.connectors.wazuh_indexer.utils.universal import (
-    return_graylog_events_index_names,
-)
+from app.connectors.wazuh_indexer.utils.universal import return_graylog_events_index_names
+from app.connectors.wazuh_indexer.utils.universal import wazuh_indexer_client_async
 from app.incidents.schema.alert_collection import AlertPayloadItem
 from app.incidents.schema.alert_collection import AlertsPayload
 from app.incidents.schema.incident_alert import CreateAlertRequest
@@ -117,12 +115,16 @@ async def fetch_alerts_batch(es_client, index: str, query: dict, batch_size: int
 #     return AlertsPayload(alerts=alerts_not_created)
 
 
-async def get_alerts_not_created_in_copilot(batch_size: int = 100) -> Tuple[AlertsPayload, int]:
+async def get_alerts_not_created_in_copilot(
+    batch_size: int = 100,
+    es_client: Optional[AsyncElasticsearch] = None,
+) -> Tuple[AlertsPayload, int]:
     """
     Get a batch of alerts that have not been created in CoPilot yet.
 
     Args:
         batch_size: Maximum number of alerts to return (default 100)
+        es_client: Optional indexer client to reuse. When omitted a client is opened and closed here.
 
     Returns:
         Tuple of (AlertsPayload with alerts, total count remaining)
@@ -130,22 +132,22 @@ async def get_alerts_not_created_in_copilot(batch_size: int = 100) -> Tuple[Aler
     indices = await return_graylog_events_index_names()
     logger.info(f"Checking indices: {indices}")
 
-    es_client = await create_wazuh_indexer_client_async("Wazuh-Indexer")
     query = await construct_query()
 
     alerts_to_process = []
     total_remaining = 0
 
-    # Fetch from each index until we have enough alerts or run out
-    for index in indices:
-        if len(alerts_to_process) >= batch_size:
-            break
+    async with wazuh_indexer_client_async(client=es_client) as client:
+        # Fetch from each index until we have enough alerts or run out
+        for index in indices:
+            if len(alerts_to_process) >= batch_size:
+                break
 
-        remaining_to_fetch = batch_size - len(alerts_to_process)
-        alerts, index_total = await fetch_alerts_batch(es_client, index, query, remaining_to_fetch)
+            remaining_to_fetch = batch_size - len(alerts_to_process)
+            alerts, index_total = await fetch_alerts_batch(client, index, query, remaining_to_fetch)
 
-        alerts_to_process.extend(alerts)
-        total_remaining += index_total
+            alerts_to_process.extend(alerts)
+            total_remaining += index_total
 
     logger.info(f"Returning {len(alerts_to_process)} alerts. Total remaining across all indices: {total_remaining}")
 
@@ -174,34 +176,34 @@ async def get_original_alert_index_name(origin_context: str):
         return None
 
 
-async def add_copilot_alert_id(index_data: CreateAlertRequest, alert_id: int):
+async def add_copilot_alert_id(index_data: CreateAlertRequest, alert_id: int, es_client: Optional[AsyncElasticsearch] = None):
     """
     Add the CoPilot alert ID to the Graylog event.
     """
-    es_client = await create_wazuh_indexer_client_async("Wazuh-Indexer")
-    body = {"doc": {"fields": {"COPILOT_ALERT_ID": f"{alert_id}"}}}
-    try:
-        await es_client.update(index=index_data.index_name, id=index_data.alert_id, body=body)
-        logger.info(f"Added CoPilot alert ID {alert_id} to Graylog event {index_data.alert_id} in index {index_data.index_name}")
-    except Exception as e:
-        logger.error(
-            f"Failed to add CoPilot alert ID {alert_id} to Graylog event {index_data.alert_id} in index {index_data.index_name}: {e}",
-        )
-
-        # Attempt to remove read-only block
+    async with wazuh_indexer_client_async(client=es_client) as client:
+        body = {"doc": {"fields": {"COPILOT_ALERT_ID": f"{alert_id}"}}}
         try:
-            await es_client.indices.put_settings(index=index_data.index_name, body={"index.blocks.write": None})
-            logger.info(f"Removed read-only block from index {index_data.index_name}. Retrying update.")
-
-            # Retry the update operation
-            await es_client.update(index=index_data.index_name, id=index_data.alert_id, body=body)
-            logger.info(
-                f"Added CoPilot alert ID {alert_id} to Graylog event {index_data.alert_id} in index {index_data.index_name} after removing read-only block",
+            await client.update(index=index_data.index_name, id=index_data.alert_id, body=body)
+            logger.info(f"Added CoPilot alert ID {alert_id} to Graylog event {index_data.alert_id} in index {index_data.index_name}")
+        except Exception as e:
+            logger.error(
+                f"Failed to add CoPilot alert ID {alert_id} to Graylog event {index_data.alert_id} in index {index_data.index_name}: {e}",
             )
 
-            # Re-enable the write block
-            await es_client.indices.put_settings(index=index_data.index_name, body={"index.blocks.write": True})
-        except Exception as e2:
-            logger.error(f"Failed to remove read-only block from index {index_data.index_name}: {e2}")
+            # Attempt to remove read-only block
+            try:
+                await client.indices.put_settings(index=index_data.index_name, body={"index.blocks.write": None})
+                logger.info(f"Removed read-only block from index {index_data.index_name}. Retrying update.")
+
+                # Retry the update operation
+                await client.update(index=index_data.index_name, id=index_data.alert_id, body=body)
+                logger.info(
+                    f"Added CoPilot alert ID {alert_id} to Graylog event {index_data.alert_id} in index {index_data.index_name} after removing read-only block",
+                )
+
+                # Re-enable the write block
+                await client.indices.put_settings(index=index_data.index_name, body={"index.blocks.write": True})
+            except Exception as e2:
+                logger.error(f"Failed to remove read-only block from index {index_data.index_name}: {e2}")
 
     return None

@@ -9,6 +9,7 @@ from typing import List
 from typing import Optional
 from typing import Tuple
 
+from elasticsearch7 import AsyncElasticsearch
 from fastapi import HTTPException
 from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,13 +20,9 @@ from app.blocking import run_blocking
 from app.connectors.shuffle.schema.integrations import ExecuteWorkflowRequest
 from app.connectors.shuffle.services.integrations import execute_workflow
 from app.connectors.talon.schema.talon import TalonInvestigateRequest
-from app.connectors.talon.services.talon import (
-    investigate_alert as talon_investigate_alert,
-)
+from app.connectors.talon.services.talon import investigate_alert as talon_investigate_alert
 from app.connectors.wazuh_indexer.utils.universal import create_wazuh_indexer_client
-from app.connectors.wazuh_indexer.utils.universal import (
-    create_wazuh_indexer_client_async,
-)
+from app.connectors.wazuh_indexer.utils.universal import wazuh_indexer_client_async
 from app.db.universal_models import Agents
 from app.incidents.models import Alert
 from app.incidents.models import AlertContext
@@ -53,13 +50,9 @@ from app.incidents.services.db_operations import get_timefield_names
 from app.incidents.services.notification_enrichment import extract_rule_level
 from app.incidents.services.notification_enrichment import severity_from_rule_level
 from app.incidents.services.threshold_alert import retrieve_threshold_alert_timeline
-from app.integrations.alert_creation_settings.models.alert_creation_settings import (
-    AlertCreationSettings,
-)
+from app.integrations.alert_creation_settings.models.alert_creation_settings import AlertCreationSettings
 from app.integrations.alert_escalation.schema.escalate_alert import CustomerCodeKeys
-from app.integrations.office365.services.tenant_lookup import (
-    resolve_customer_code_from_office365_tenant,
-)
+from app.integrations.office365.services.tenant_lookup import resolve_customer_code_from_office365_tenant
 from app.integrations.routes import get_customer_by_auth_key
 from app.notifications.services.emit import emit
 from app.notifications.services.event_builders import alert_created_event
@@ -194,12 +187,14 @@ async def update_alert_creation_time(
 
 async def get_single_alert_details(
     alert_details: CreateAlertRequest,
+    es_client: Optional[AsyncElasticsearch] = None,
 ) -> GenericAlertModel:
     """
     Fetches the details of a single alert.
 
     Args:
         alert_details (CreateAlertRequest): The details of the alert to fetch.
+        es_client: Optional indexer client to reuse. When omitted a client is opened and closed here.
 
     Returns:
         GenericAlertModel: The model representing the fetched alert.
@@ -210,28 +205,28 @@ async def get_single_alert_details(
     logger.info(
         f"Fetching alert details for alert {alert_details.alert_id} in index {alert_details.index_name}",
     )
-    es_client = await create_wazuh_indexer_client_async("Wazuh-Indexer")
-    try:
-        alert = await es_client.get(index=alert_details.index_name, id=alert_details.alert_id)
-        source_model = GenericSourceModel(**alert["_source"])
-        syslog_type = getattr(source_model, "syslog_type", None)
-        if syslog_type is None:
-            syslog_type = getattr(source_model, "integration", None)
-        if syslog_type is None:
-            raise HTTPException(status_code=400, detail="Neither syslog_type nor integration field found in source_model")
-        return GenericAlertModel(
-            _source=source_model,
-            _id=alert["_id"],
-            _index=alert["_index"],
-            _version=alert["_version"],
-            syslog_type=syslog_type,
-        )
-    except Exception as e:
-        logger.debug(f"Failed to collect alert details: {e}")
-        raise HTTPException(
-            status_code=400,
-            detail=f"Failed to collect alert details: {e}",
-        )
+    async with wazuh_indexer_client_async(client=es_client) as client:
+        try:
+            alert = await client.get(index=alert_details.index_name, id=alert_details.alert_id)
+            source_model = GenericSourceModel(**alert["_source"])
+            syslog_type = getattr(source_model, "syslog_type", None)
+            if syslog_type is None:
+                syslog_type = getattr(source_model, "integration", None)
+            if syslog_type is None:
+                raise HTTPException(status_code=400, detail="Neither syslog_type nor integration field found in source_model")
+            return GenericAlertModel(
+                _source=source_model,
+                _id=alert["_id"],
+                _index=alert["_index"],
+                _version=alert["_version"],
+                syslog_type=syslog_type,
+            )
+        except Exception as e:
+            logger.debug(f"Failed to collect alert details: {e}")
+            raise HTTPException(
+                status_code=400,
+                detail=f"Failed to collect alert details: {e}",
+            )
 
 
 def remove_process_name_if_osquery(source_dict: dict) -> None:
@@ -360,6 +355,7 @@ async def get_customer_code(alert_details: dict, session: AsyncSession = None):
 async def add_alert_to_document(
     alert: CreateAlertRequest,
     soc_alert_id: int,
+    es_client: Optional[AsyncElasticsearch] = None,
 ) -> Optional[str]:
     """
     Update the alert document in Elasticsearch with the provided SOC alert ID URL.
@@ -369,6 +365,7 @@ async def add_alert_to_document(
     - alert: The alert request object containing alert_id and index_name.
     - soc_alert_id: The alert ID as it exists within IRIS.
     - session: The database session for retrieving connector information.
+    - es_client: Optional indexer client to reuse. When omitted a client is opened and closed here.
 
     Returns:
     - True if the update is successful, False otherwise.
@@ -381,52 +378,52 @@ async def add_alert_to_document(
         logger.info("Skipping document write-back for 'not_applicable' sentinel index/id")
         return None
 
-    es_client = await create_wazuh_indexer_client_async("Wazuh-Indexer")
-    try:
-        await es_client.update(
-            index=alert.index_name,
-            id=alert.alert_id,
-            body={"doc": {"alert_id": soc_alert_id}},
-        )
-        logger.info(
-            f"Added alert ID {soc_alert_id} to alert {alert.alert_id} in index {alert.index_name}",
-        )
-        return soc_alert_id
-    except Exception as e:
-        logger.error(
-            f"Failed to add alert ID {soc_alert_id} to alert {alert.alert_id} in index {alert.index_name}: {e}",
-        )
-        # Attempt to remove read-only block
+    async with wazuh_indexer_client_async(client=es_client) as client:
         try:
-            await es_client.indices.put_settings(
-                index=alert.index_name,
-                body={"index.blocks.write": None},
-            )
-            logger.info(
-                f"Removed read-only block from index {alert.index_name}. Retrying update.",
-            )
-
-            # Retry the update operation
-            await es_client.update(
+            await client.update(
                 index=alert.index_name,
                 id=alert.alert_id,
                 body={"doc": {"alert_id": soc_alert_id}},
             )
             logger.info(
-                f"Added alert ID {soc_alert_id} to alert {alert.alert_id} in index {alert.index_name} after removing read-only block",
-            )
-
-            # Reenable the write block
-            await es_client.indices.put_settings(
-                index=alert.index_name,
-                body={"index.blocks.write": True},
+                f"Added alert ID {soc_alert_id} to alert {alert.alert_id} in index {alert.index_name}",
             )
             return soc_alert_id
-        except Exception as e2:
+        except Exception as e:
             logger.error(
-                f"Failed to remove read-only block from index {alert.index_name}: {e2}",
+                f"Failed to add alert ID {soc_alert_id} to alert {alert.alert_id} in index {alert.index_name}: {e}",
             )
-            return False
+            # Attempt to remove read-only block
+            try:
+                await client.indices.put_settings(
+                    index=alert.index_name,
+                    body={"index.blocks.write": None},
+                )
+                logger.info(
+                    f"Removed read-only block from index {alert.index_name}. Retrying update.",
+                )
+
+                # Retry the update operation
+                await client.update(
+                    index=alert.index_name,
+                    id=alert.alert_id,
+                    body={"doc": {"alert_id": soc_alert_id}},
+                )
+                logger.info(
+                    f"Added alert ID {soc_alert_id} to alert {alert.alert_id} in index {alert.index_name} after removing read-only block",
+                )
+
+                # Reenable the write block
+                await client.indices.put_settings(
+                    index=alert.index_name,
+                    body={"index.blocks.write": True},
+                )
+                return soc_alert_id
+            except Exception as e2:
+                logger.error(
+                    f"Failed to remove read-only block from index {alert.index_name}: {e2}",
+                )
+                return False
 
 
 async def retrieve_agent_details_from_db(agent_name: str, session: AsyncSession):
@@ -906,6 +903,7 @@ async def create_alert_full(
     session: AsyncSession,
     threshold_alert: bool = False,
     velo_sigma_alert: bool = False,
+    es_client: Optional[AsyncElasticsearch] = None,
 ) -> Alert:
     """
     Create an alert in CoPilot.
@@ -974,6 +972,7 @@ async def create_alert_full(
                 await add_alert_to_document(
                     CreateAlertRequest(index_name=alert_payload.index_name, alert_id=alert_payload.index_id),
                     existing_alert_id,
+                    es_client=es_client,
                 )
 
             # Set alert ID for notifications
@@ -1079,7 +1078,11 @@ async def create_alert_full(
         )
         return alert_id
 
-    await add_alert_to_document(CreateAlertRequest(index_name=alert_payload.index_name, alert_id=alert_payload.index_id), alert_id)
+    await add_alert_to_document(
+        CreateAlertRequest(index_name=alert_payload.index_name, alert_id=alert_payload.index_id),
+        alert_id,
+        es_client=es_client,
+    )
 
     return alert_id
 
@@ -1384,6 +1387,7 @@ async def create_alert(
     alert: CreateAlertRequest,
     session: AsyncSession,
     simga_alert: str = None,
+    es_client: Optional[AsyncElasticsearch] = None,
 ) -> CreateAlertResponse:
     """
     Creates an alert in CoPilot.
@@ -1391,6 +1395,7 @@ async def create_alert(
     Args:
         alert (CreateAlertRequest): The request object containing the alert details.
         session (AsyncSession): The database session.
+        es_client: Optional indexer client shared by the caller, reused for every indexer call made here.
 
     Returns:
         CreateAlertResponse: The response object containing the created alert details.
@@ -1399,7 +1404,7 @@ async def create_alert(
         HTTPException: If there is an error creating the alert.
     """
     logger.info(f"Creating alert {alert.alert_id} in CoPilot")
-    alert_details = await get_single_alert_details(alert_details=alert)
+    alert_details = await get_single_alert_details(alert_details=alert, es_client=es_client)
     await validate_syslog_type_source(alert_details.syslog_type, session)
     customer_code = await get_customer_code(dict(alert_details.source), session=session)
     logger.info(f"Customer code: {customer_code}")
@@ -1413,7 +1418,7 @@ async def create_alert(
         session,
     )
     if simga_alert is not None:
-        return await create_alert_full(alert_payload, customer_code, session)
+        return await create_alert_full(alert_payload, customer_code, session, es_client=es_client)
 
     existing_alert = await open_alert_exists(alert_payload, customer_code, session)
     if existing_alert:
@@ -1425,6 +1430,7 @@ async def create_alert(
         await add_alert_to_document(
             CreateAlertRequest(index_name=alert_payload.index_name, alert_id=alert_payload.index_id),
             existing_alert,
+            es_client=es_client,
         )
         await add_asset_to_copilot_alert(alert_payload, existing_alert, customer_code, session)
         # If the alert has an IoC, add it to the alert
@@ -1434,7 +1440,7 @@ async def create_alert(
         else:
             logger.info(f"No IoC found for alert {existing_alert}")
         return existing_alert
-    return await create_alert_full(alert_payload, customer_code, session)
+    return await create_alert_full(alert_payload, customer_code, session, es_client=es_client)
 
 
 async def retrieve_alert_timeline(alert: CreateAlertRequestRoute, session: AsyncSession) -> List[Dict[str, Any]]:

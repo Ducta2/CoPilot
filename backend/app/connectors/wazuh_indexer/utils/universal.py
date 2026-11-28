@@ -1,9 +1,12 @@
 import re
+from contextlib import asynccontextmanager
 from datetime import datetime
 from datetime import timedelta
 from typing import Any
+from typing import AsyncIterator
 from typing import Dict
 from typing import Iterable
+from typing import Optional
 from typing import Tuple
 
 from elasticsearch7 import AsyncElasticsearch
@@ -152,6 +155,29 @@ async def create_wazuh_indexer_client_async(connector_name: str = "Wazuh-Indexer
             status_code=500,
             detail=f"Failed to create Elasticsearch client: {e}",
         )
+
+
+@asynccontextmanager
+async def wazuh_indexer_client_async(
+    connector_name: str = "Wazuh-Indexer",
+    client: Optional[AsyncElasticsearch] = None,
+) -> AsyncIterator[AsyncElasticsearch]:
+    """
+    Yield an indexer client and make sure it is closed.
+
+    Every AsyncElasticsearch owns an aiohttp session with its own TLS connections, so a client that is
+    not closed leaks them. When ``client`` is None a new client is created and closed on exit, even if
+    the body raises (the exception is not swallowed). When the caller passes its own ``client`` it is
+    reused as is and left open: its owner closes it.
+    """
+    if client is not None:
+        yield client
+        return
+    own_client = await create_wazuh_indexer_client_async(connector_name)
+    try:
+        yield own_client
+    finally:
+        await own_client.close()
 
 
 async def format_node_allocation(node_allocation):
