@@ -72,6 +72,7 @@ from app.routers import copilot_mcp
 from app.routers import copilot_searches
 from app.routers import cortex
 from app.routers import crowdstrike
+from app.routers import customer_knowledge
 from app.routers import customer_portal
 from app.routers import customer_provisioning
 from app.routers import customer_waf
@@ -329,6 +330,7 @@ api_router.include_router(talon.router)
 api_router.include_router(opencti.router)
 api_router.include_router(uba.router)
 api_router.include_router(customer_waf.router)
+api_router.include_router(customer_knowledge.router)
 api_router.include_router(soc_management.router)
 
 # Include the APIRouter in the FastAPI app
