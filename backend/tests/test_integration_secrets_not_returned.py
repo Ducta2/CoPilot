@@ -41,19 +41,43 @@ from app.customers.schema.customers import CustomerMetaResponse  # noqa: E402
 from app.db.db_session import get_db  # noqa: E402
 from app.db.universal_models import Customers  # noqa: E402
 from app.db.universal_models import CustomersMeta  # noqa: E402
-from app.integrations.models.customer_integration_settings import AvailableIntegrations  # noqa: E402
-from app.integrations.models.customer_integration_settings import AvailableIntegrationsAuthKeys  # noqa: E402
-from app.integrations.models.customer_integration_settings import CustomerIntegrations  # noqa: E402
-from app.integrations.models.customer_integration_settings import IntegrationAuthKeys  # noqa: E402
-from app.integrations.models.customer_integration_settings import IntegrationService  # noqa: E402
-from app.integrations.models.customer_integration_settings import IntegrationSubscription  # noqa: E402
+from app.integrations.models.customer_integration_settings import (  # noqa: E402
+    AvailableIntegrations,
+)
+from app.integrations.models.customer_integration_settings import (  # noqa: E402
+    AvailableIntegrationsAuthKeys,
+)
+from app.integrations.models.customer_integration_settings import (  # noqa: E402
+    CustomerIntegrations,
+)
+from app.integrations.models.customer_integration_settings import (  # noqa: E402
+    IntegrationAuthKeys,
+)
+from app.integrations.models.customer_integration_settings import (  # noqa: E402
+    IntegrationService,
+)
+from app.integrations.models.customer_integration_settings import (  # noqa: E402
+    IntegrationSubscription,
+)
 from app.middleware.customer_access import verify_customer_code_access  # noqa: E402
-from app.network_connectors.models.network_connectors import AvailableNetworkConnectors  # noqa: E402
-from app.network_connectors.models.network_connectors import AvailableNetworkConnectorsKeys  # noqa: E402
-from app.network_connectors.models.network_connectors import CustomerNetworkConnectors  # noqa: E402
-from app.network_connectors.models.network_connectors import NetworkConnectorsKeys  # noqa: E402
-from app.network_connectors.models.network_connectors import NetworkConnectorsService  # noqa: E402
-from app.network_connectors.models.network_connectors import NetworkConnectorsSubscription  # noqa: E402
+from app.network_connectors.models.network_connectors import (  # noqa: E402
+    AvailableNetworkConnectors,
+)
+from app.network_connectors.models.network_connectors import (  # noqa: E402
+    AvailableNetworkConnectorsKeys,
+)
+from app.network_connectors.models.network_connectors import (  # noqa: E402
+    CustomerNetworkConnectors,
+)
+from app.network_connectors.models.network_connectors import (  # noqa: E402
+    NetworkConnectorsKeys,
+)
+from app.network_connectors.models.network_connectors import (  # noqa: E402
+    NetworkConnectorsService,
+)
+from app.network_connectors.models.network_connectors import (  # noqa: E402
+    NetworkConnectorsSubscription,
+)
 from app.routers import customers as customers_router_module  # noqa: E402
 from app.routers import integrations as integrations_router_module  # noqa: E402
 from app.routers import network_connectors as network_connectors_router_module  # noqa: E402
@@ -108,7 +132,11 @@ class Db:
             s.add(AvailableIntegrations(id=1, integration_name="Mimecast", description="d", integration_details="x"))
             s.add(AvailableIntegrationsAuthKeys(integration_id=1, integration_name="Mimecast", auth_key_name="API_KEY"))
             s.add(IntegrationService(id=1, service_name="Mimecast", auth_type="api"))
-            s.add(CustomerIntegrations(id=1, customer_code=CC, customer_name="Acme", integration_service_id=1, integration_service_name="Mimecast"))
+            s.add(
+                CustomerIntegrations(
+                    id=1, customer_code=CC, customer_name="Acme", integration_service_id=1, integration_service_name="Mimecast"
+                )
+            )
             s.add(IntegrationSubscription(id=1, customer_id=1, integration_service_id=1))
             s.add(IntegrationAuthKeys(id=1, subscription_id=1, auth_key_name="API_KEY", auth_value=INTEGRATION_SECRET))
             # Network connector "Fortinet" with one secret key
@@ -256,7 +284,9 @@ def test_integration_update_with_new_secret_replaces_it():
 # --------------------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("path", ["/network_connectors/customer_network_connectors", f"/network_connectors/customer_network_connectors/{CC}"])
+@pytest.mark.parametrize(
+    "path", ["/network_connectors/customer_network_connectors", f"/network_connectors/customer_network_connectors/{CC}"]
+)
 def test_customer_network_connectors_get_never_returns_auth_value(path):
     async def scenario(client, db):
         return await client.get(path, headers=ANA)
@@ -270,14 +300,18 @@ def test_customer_network_connectors_get_never_returns_auth_value(path):
 
 
 def test_network_connector_update_internal_flow_still_sees_the_secret():
-    from app.network_connectors.routes import get_customer_network_connectors_by_customer_code
+    from app.network_connectors.routes import (
+        get_customer_network_connectors_by_customer_code,
+    )
 
     async def scenario(client, db):
         async with db.factory() as s:
             return await get_customer_network_connectors_by_customer_code(CC, s)
 
     internal = _run(scenario)
-    assert internal.available_network_connectors[0].network_connectors_subscriptions[0].network_connectors_keys[0].auth_value == NETWORK_SECRET
+    assert (
+        internal.available_network_connectors[0].network_connectors_subscriptions[0].network_connectors_keys[0].auth_value == NETWORK_SECRET
+    )
 
 
 def _update_network(client, value):

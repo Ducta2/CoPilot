@@ -18,6 +18,8 @@ NUCLEI_MODULE_URL = "http://copilot-nuclei-module"
 NUCLEI_REQUEST_TIMEOUT = 15
 NUCLEI_UNAVAILABLE_MESSAGE = "Dịch vụ đánh giá web chưa sẵn sàng"
 NUCLEI_BAD_RESPONSE_MESSAGE = "Dịch vụ đánh giá web trả về dữ liệu không hợp lệ"
+NUCLEI_REPORTS_NOT_FOUND_MESSAGE = "Không tìm thấy báo cáo đánh giá web"
+NUCLEI_REPORT_NOT_FOUND_MESSAGE = "Không tìm thấy báo cáo đánh giá web này"
 
 ResponseModel = TypeVar("ResponseModel", bound=BaseModel)
 
@@ -68,7 +70,7 @@ async def get_nuclei_reports_available() -> NucleiReportsAvailableResponse:
         NucleiReportsAvailableResponse: The response containing the list of available Nuclei reports.
     """
     logger.info(f"Sending GET request to {NUCLEI_MODULE_URL}/all_reports")
-    return await _call_nuclei_module("get", "/all_reports", NucleiReportsAvailableResponse, "Nuclei reports not found")
+    return await _call_nuclei_module("get", "/all_reports", NucleiReportsAvailableResponse, NUCLEI_REPORTS_NOT_FOUND_MESSAGE)
 
 
 async def get_nuclei_report(host: str, report: str = "index.md") -> NucleiReportCollectionResponse:
@@ -83,7 +85,7 @@ async def get_nuclei_report(host: str, report: str = "index.md") -> NucleiReport
         NucleiReportCollectionResponse: The response containing the Nuclei report.
     """
     logger.info(f"Sending GET request to {NUCLEI_MODULE_URL}/report/{host}/{report}")
-    return await _call_nuclei_module("get", f"/report/{host}/{report}", NucleiReportCollectionResponse, "Nuclei report not found")
+    return await _call_nuclei_module("get", f"/report/{host}/{report}", NucleiReportCollectionResponse, NUCLEI_REPORT_NOT_FOUND_MESSAGE)
 
 
 async def delete_nuclei_report(host: str) -> DeleteNucleiReportResponse:
@@ -97,7 +99,7 @@ async def delete_nuclei_report(host: str) -> DeleteNucleiReportResponse:
         DeleteNucleiReportResponse: The response containing the result of the deletion.
     """
     logger.info(f"Sending DELETE request to {NUCLEI_MODULE_URL}/report/{host}")
-    return await _call_nuclei_module("delete", f"/report/{host}", DeleteNucleiReportResponse, "Nuclei report not found")
+    return await _call_nuclei_module("delete", f"/report/{host}", DeleteNucleiReportResponse, NUCLEI_REPORT_NOT_FOUND_MESSAGE)
 
 
 async def post_to_copilot_nuclei_module(data: NucleiScanRequest) -> NucleiScanResponse:

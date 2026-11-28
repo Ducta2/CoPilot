@@ -202,13 +202,23 @@ def test_nuclei_invalid_json_is_a_502(monkeypatch):
     assert exc.value.status_code == 502
 
 
-def test_nuclei_404_stays_a_404(monkeypatch):
-    _patch_http(monkeypatch, "get", _response(404, {"detail": "nope"}))
+@pytest.mark.parametrize(
+    "method,call,detail",
+    [
+        ("get", lambda: nuclei_service.get_nuclei_reports_available(), "Không tìm thấy báo cáo đánh giá web"),
+        ("get", lambda: nuclei_service.get_nuclei_report("example.com"), "Không tìm thấy báo cáo đánh giá web này"),
+        ("delete", lambda: nuclei_service.delete_nuclei_report("example.com"), "Không tìm thấy báo cáo đánh giá web này"),
+    ],
+)
+def test_nuclei_404_stays_a_404_without_the_platform_name(monkeypatch, method, call, detail):
+    _patch_http(monkeypatch, method, _response(404, {"detail": "nope"}, method.upper()))
 
     with pytest.raises(HTTPException) as exc:
-        asyncio.run(nuclei_service.get_nuclei_report("example.com"))
+        asyncio.run(call())
 
     assert exc.value.status_code == 404
+    assert exc.value.detail == detail
+    assert "nuclei" not in exc.value.detail.lower()
 
 
 def test_nuclei_success_paths_are_unchanged(monkeypatch):
