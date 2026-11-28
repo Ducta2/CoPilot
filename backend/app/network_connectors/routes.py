@@ -42,6 +42,7 @@ from app.network_connectors.schema import CustomerNetworkConnectorsCreateRespons
 from app.network_connectors.schema import CustomerNetworkConnectorsDeleteResponse
 from app.network_connectors.schema import CustomerNetworkConnectorsMetaResponse
 from app.network_connectors.schema import CustomerNetworkConnectorsMetaSchema
+from app.network_connectors.schema import CustomerNetworkConnectorsPublicResponse
 from app.network_connectors.schema import CustomerNetworkConnectorsResponse
 from app.network_connectors.schema import DeleteCustomerNetworkConnectors
 from app.network_connectors.schema import NetworkConnectorsWithAuthKeys
@@ -142,7 +143,7 @@ async def validate_network_connector_auth_key_update(
     logger.info(f"network_connector_auth_key: {network_connector_auth_key}")
     available_network_connectors = await fetch_available_network_connectors(session)
     network_connector = [ai for ai in available_network_connectors if ai.network_connector_name == network_connector_name][0]
-    available_auth_keys = [ak.auth_key_name for ak in network_connector.auth_keys]
+    available_auth_keys = [ak.auth_key_name for ak in network_connector.network_connector_keys]
     for auth_key in network_connector_auth_key:
         if auth_key.auth_key_name not in available_auth_keys:
             raise HTTPException(
@@ -394,7 +395,7 @@ def get_subscription_id(
     logger.info(f"Getting subscription id for {network_connector_name} {auth_key_name}")
     for subscription in customer_network_connector.network_connectors_subscriptions:
         if subscription.network_connectors_service.service_name == network_connector_name:
-            for auth_key in subscription.network_connector_keys:
+            for auth_key in subscription.network_connectors_keys:
                 if auth_key.auth_key_name == auth_key_name:
                     return subscription.id
     return None
@@ -577,7 +578,7 @@ async def get_available_network_connector(
 
 @network_connector_settings_router.get(
     "/customer_network_connectors",
-    response_model=CustomerNetworkConnectorsResponse,
+    response_model=CustomerNetworkConnectorsPublicResponse,
     description="Get a list of customer network_connectors.",
     dependencies=[Security(AuthHandler().require_any_scope("admin", "analyst"))],
 )
@@ -625,7 +626,7 @@ async def get_customer_network_connectors_meta(session: AsyncSession = Depends(g
 
 @network_connector_settings_router.get(
     "/customer_network_connectors/{customer_code}",
-    response_model=CustomerNetworkConnectorsResponse,
+    response_model=CustomerNetworkConnectorsPublicResponse,
     description="Get a list of customer network_connectors for a specific customer.",
     dependencies=[
         Security(AuthHandler().require_any_scope("admin", "analyst")),
@@ -849,13 +850,15 @@ async def update_network_connector(
             detail=f"NetworkConnectors auth key {customer_network_connector_update.network_connector_auth_keys[0].auth_key_name} not found.",
         )
 
-    await session.execute(
-        update(NetworkConnectorsKeys)
-        .where(NetworkConnectorsKeys.subscription_id == subscription_id)
-        .values(
-            auth_value=customer_network_connector_update.network_connector_auth_keys[0].auth_value,
-        ),
-    )
+    # Secrets are never returned by the API, so a client cannot echo them back: a blank value means "keep".
+    if customer_network_connector_update.network_connector_auth_keys[0].auth_value.strip():
+        await session.execute(
+            update(NetworkConnectorsKeys)
+            .where(NetworkConnectorsKeys.subscription_id == subscription_id)
+            .values(
+                auth_value=customer_network_connector_update.network_connector_auth_keys[0].auth_value,
+            ),
+        )
 
     await session.commit()
 

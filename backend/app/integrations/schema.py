@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from pydantic import ConfigDict
 from pydantic import Field
 from pydantic import field_validator
+from pydantic import model_validator
 
 
 class AuthKey(BaseModel):
@@ -169,6 +170,22 @@ class IntegrationAuthKeys(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class IntegrationAuthKeysPublic(IntegrationAuthKeys):
+    """An auth key as the API returns it: the stored value never leaves the backend.
+
+    ``IntegrationAuthKeys`` stays the internal shape (provisioning code reads ``auth_value`` from it).
+    Routes answer with this one, which drops the value from the JSON and reports ``auth_value_set``.
+    """
+
+    auth_value: Optional[str] = Field(default=None, exclude=True)
+    auth_value_set: bool = False
+
+    @model_validator(mode="after")
+    def _flag_stored_secret(self) -> "IntegrationAuthKeysPublic":
+        self.auth_value_set = bool(self.auth_value)
+        return self
+
+
 class IntegrationService(BaseModel):
     auth_type: str
     service_name: str
@@ -185,6 +202,10 @@ class IntegrationSubscription(BaseModel):
     integration_auth_keys: List[IntegrationAuthKeys]  # Changed from IntegrationConfig
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class IntegrationSubscriptionPublic(IntegrationSubscription):
+    integration_auth_keys: List[IntegrationAuthKeysPublic]
 
 
 class CustomerIntegrations(BaseModel):
@@ -214,6 +235,18 @@ class CustomerIntegrations(BaseModel):
     )
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class CustomerIntegrationsPublic(CustomerIntegrations):
+    integration_subscriptions: List[IntegrationSubscriptionPublic]
+
+
+class CustomerIntegrationsPublicResponse(BaseModel):
+    """Response model of the customer integrations GET routes: no ``auth_value``, only ``auth_value_set``."""
+
+    available_integrations: List[CustomerIntegrationsPublic]
+    message: str
+    success: bool
 
 
 class CustomerIntegrationsResponse(BaseModel):

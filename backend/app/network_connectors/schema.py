@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from pydantic import ConfigDict
 from pydantic import Field
 from pydantic import field_validator
+from pydantic import model_validator
 
 
 class AuthKey(BaseModel):
@@ -153,6 +154,18 @@ class NetworkConnectorsAuthKeys(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class NetworkConnectorsAuthKeysPublic(NetworkConnectorsAuthKeys):
+    """An auth key as the API returns it: the stored value never leaves the backend (see ``IntegrationAuthKeysPublic``)."""
+
+    auth_value: Optional[str] = Field(default=None, exclude=True)
+    auth_value_set: bool = False
+
+    @model_validator(mode="after")
+    def _flag_stored_secret(self) -> "NetworkConnectorsAuthKeysPublic":
+        self.auth_value_set = bool(self.auth_value)
+        return self
+
+
 class NetworkConnectorsService(BaseModel):
     auth_type: str
     service_name: str
@@ -169,6 +182,10 @@ class NetworkConnectorsSubscription(BaseModel):
     network_connectors_keys: List[NetworkConnectorsAuthKeys]
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class NetworkConnectorsSubscriptionPublic(NetworkConnectorsSubscription):
+    network_connectors_keys: List[NetworkConnectorsAuthKeysPublic]
 
 
 class CustomerNetworkConnectors(BaseModel):
@@ -193,6 +210,18 @@ class CustomerNetworkConnectors(BaseModel):
     )
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class CustomerNetworkConnectorsPublic(CustomerNetworkConnectors):
+    network_connectors_subscriptions: List[NetworkConnectorsSubscriptionPublic]
+
+
+class CustomerNetworkConnectorsPublicResponse(BaseModel):
+    """Response model of the customer network connectors GET routes: no ``auth_value``, only ``auth_value_set``."""
+
+    available_network_connectors: List[CustomerNetworkConnectorsPublic]
+    message: str
+    success: bool
 
 
 class CustomerNetworkConnectorsResponse(BaseModel):

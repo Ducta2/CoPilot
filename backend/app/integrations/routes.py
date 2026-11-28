@@ -51,6 +51,7 @@ from app.integrations.schema import CustomerIntegrationCreateResponse
 from app.integrations.schema import CustomerIntegrationDeleteResponse
 from app.integrations.schema import CustomerIntegrationsMetaResponse
 from app.integrations.schema import CustomerIntegrationsMetaSchema
+from app.integrations.schema import CustomerIntegrationsPublicResponse
 from app.integrations.schema import CustomerIntegrationsResponse
 from app.integrations.schema import DeleteCustomerIntegration
 from app.integrations.schema import IntegrationWithAuthKeys
@@ -882,7 +883,7 @@ async def get_available_integration(
 
 @integration_settings_router.get(
     "/customer_integrations",
-    response_model=CustomerIntegrationsResponse,
+    response_model=CustomerIntegrationsPublicResponse,
     description="Get a list of customer integrations.",
     dependencies=[Security(AuthHandler().require_any_scope("admin", "analyst"))],
 )
@@ -931,7 +932,7 @@ async def get_customer_integrations_meta(session: AsyncSession = Depends(get_db)
 
 @integration_settings_router.get(
     "/customer_integrations/{customer_code}",
-    response_model=CustomerIntegrationsResponse,
+    response_model=CustomerIntegrationsPublicResponse,
     description="Get a list of customer integrations for a specific customer.",
     dependencies=[
         Security(AuthHandler().require_any_scope("admin", "analyst")),
@@ -1187,6 +1188,10 @@ async def update_integration(
                 status_code=404,
                 detail=f"Integration auth key {auth_key.auth_key_name} not found.",
             )
+
+        # Secrets are never returned by the API, so a client cannot echo them back: a blank value means "keep".
+        if not auth_key.auth_value.strip():
+            continue
 
         await session.execute(
             update(IntegrationAuthKeys)

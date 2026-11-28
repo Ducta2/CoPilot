@@ -5,6 +5,7 @@ from typing import Optional
 from pydantic import BaseModel
 from pydantic import ConfigDict
 from pydantic import Field
+from pydantic import model_validator
 
 
 class CustomerRequestBody(BaseModel):
@@ -159,9 +160,16 @@ class CustomerMetaOut(BaseModel):
     customer_meta_wazuh_registration_port: Optional[str] = None
     customer_meta_wazuh_log_ingestion_port: Optional[str] = None
     customer_meta_wazuh_api_port: Optional[str] = None
-    customer_meta_wazuh_auth_password: Optional[str] = None
+    # The registration password is never returned; ``..._set`` tells the UI one is stored.
+    customer_meta_wazuh_auth_password: Optional[str] = Field(default=None, exclude=True)
+    customer_meta_wazuh_auth_password_set: bool = False
     customer_meta_portainer_stack_id: Optional[int] = None
     model_config = ConfigDict(from_attributes=True)
+
+    @model_validator(mode="after")
+    def _flag_stored_password(self) -> "CustomerMetaOut":
+        self.customer_meta_wazuh_auth_password_set = bool(self.customer_meta_wazuh_auth_password)
+        return self
 
 
 class CustomerMetaResponse(BaseModel):
