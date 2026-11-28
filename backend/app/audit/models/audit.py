@@ -71,6 +71,11 @@ class AuditAction(str, Enum):
     # File data store
     DATASTORE_FILE_CREATE = "datastore.file_create"
     DATASTORE_FILE_DELETE = "datastore.file_delete"
+    # "Ask the SOC" from the Customer Portal (#1305): a portal user's question (refusals as
+    # failures), the SOC marking one answered by hand, and the per-customer switch.
+    SOC_REQUEST_CREATE = "soc_request.create"
+    SOC_REQUEST_ANSWER = "soc_request.answer"
+    SOC_REQUEST_SETTINGS_UPDATE = "soc_request.settings_update"
 
 
 class AuditResult(str, Enum):

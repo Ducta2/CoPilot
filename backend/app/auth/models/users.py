@@ -86,6 +86,11 @@ class RoleEnum(int, Enum):
     customer_user = 4
 
 
+#: The roles that are the SOC (#1305: a comment by one of them answers a customer's question).
+#: Upstream also counts ``responder``, a role this base does not have.
+SOC_ROLES = frozenset({RoleEnum.admin, RoleEnum.analyst})
+
+
 class UserInput(SQLModel):
     username: str
     # bcrypt's input is capped at 72 bytes; longer passwords would either be silently
