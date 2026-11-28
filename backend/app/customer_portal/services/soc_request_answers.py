@@ -37,23 +37,27 @@ def is_soc_user(user: Any) -> bool:
 async def mark_answered_by_comment(entity_type: str, entity_id: int, user: Any, session: AsyncSession) -> int:
     """Mark the open questions filed on this alert or case answered, when a SOC user commented.
 
-    Returns how many moved. Best-effort: a failure is logged and rolled back, never raised, so
-    the comment the SOC just wrote is never refused because of it.
+    Returns how many moved. Best-effort: a failure is logged, never raised, so the comment the
+    SOC just wrote is never refused because of it.
+
+    The UPDATE runs inside a SAVEPOINT on the request's session. A failure rolls back only that
+    savepoint: rolling the whole session back would expire every object in it, the comment the
+    route is about to return included, and the route would answer ``{"comment": {}}``.
     """
     if not is_soc_user(user):
         return 0
     column = CustomerPortalSocRequest.case_id if entity_type == "case" else CustomerPortalSocRequest.alert_id
     try:
-        result = await session.execute(
-            update(CustomerPortalSocRequest)
-            .where(column == entity_id, CustomerPortalSocRequest.status == OPEN)
-            .values(status=ANSWERED, answered_at=now_utc().replace(tzinfo=None), answered_by=user.username, answered_via=VIA_COMMENT),
-        )
-        await session.commit()
+        async with session.begin_nested():
+            result = await session.execute(
+                update(CustomerPortalSocRequest)
+                .where(column == entity_id, CustomerPortalSocRequest.status == OPEN)
+                .values(status=ANSWERED, answered_at=now_utc().replace(tzinfo=None), answered_by=user.username, answered_via=VIA_COMMENT),
+            )
     except Exception as e:  # noqa: BLE001 - the comment went through; the question's state is a courtesy
         logger.warning(f"Could not mark the customer questions on {entity_type} {entity_id} answered: {e}")
-        await session.rollback()
         return 0
+    await session.commit()
     moved = result.rowcount or 0
     if moved:
         logger.info(f"{user.username} answered {moved} customer question(s) on {entity_type} {entity_id}")
