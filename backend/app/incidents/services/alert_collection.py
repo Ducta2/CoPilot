@@ -5,7 +5,9 @@ from typing import Tuple
 from elasticsearch7 import AsyncElasticsearch
 from loguru import logger
 
-from app.connectors.wazuh_indexer.utils.universal import return_graylog_events_index_names
+from app.connectors.wazuh_indexer.utils.universal import (
+    return_graylog_events_index_names,
+)
 from app.connectors.wazuh_indexer.utils.universal import wazuh_indexer_client_async
 from app.incidents.schema.alert_collection import AlertPayloadItem
 from app.incidents.schema.alert_collection import AlertsPayload

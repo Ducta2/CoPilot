@@ -20,7 +20,9 @@ from app.blocking import run_blocking
 from app.connectors.shuffle.schema.integrations import ExecuteWorkflowRequest
 from app.connectors.shuffle.services.integrations import execute_workflow
 from app.connectors.talon.schema.talon import TalonInvestigateRequest
-from app.connectors.talon.services.talon import investigate_alert as talon_investigate_alert
+from app.connectors.talon.services.talon import (
+    investigate_alert as talon_investigate_alert,
+)
 from app.connectors.wazuh_indexer.utils.universal import create_wazuh_indexer_client
 from app.connectors.wazuh_indexer.utils.universal import wazuh_indexer_client_async
 from app.db.universal_models import Agents
@@ -50,9 +52,13 @@ from app.incidents.services.db_operations import get_timefield_names
 from app.incidents.services.notification_enrichment import extract_rule_level
 from app.incidents.services.notification_enrichment import severity_from_rule_level
 from app.incidents.services.threshold_alert import retrieve_threshold_alert_timeline
-from app.integrations.alert_creation_settings.models.alert_creation_settings import AlertCreationSettings
+from app.integrations.alert_creation_settings.models.alert_creation_settings import (
+    AlertCreationSettings,
+)
 from app.integrations.alert_escalation.schema.escalate_alert import CustomerCodeKeys
-from app.integrations.office365.services.tenant_lookup import resolve_customer_code_from_office365_tenant
+from app.integrations.office365.services.tenant_lookup import (
+    resolve_customer_code_from_office365_tenant,
+)
 from app.integrations.routes import get_customer_by_auth_key
 from app.notifications.services.emit import emit
 from app.notifications.services.event_builders import alert_created_event
