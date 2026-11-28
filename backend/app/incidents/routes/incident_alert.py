@@ -103,7 +103,8 @@ async def get_alerts_not_created_route() -> AlertsPayload:
     Returns:
         List[AlertPayloadItem]: The list of alerts that have not been created in CoPilot.
     """
-    return await get_alerts_not_created_in_copilot()
+    alerts_payload, _total_remaining = await get_alerts_not_created_in_copilot()
+    return alerts_payload
 
 
 @incidents_alerts_router.post(
