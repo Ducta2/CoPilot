@@ -35,6 +35,9 @@ class AuditAction(str, Enum):
 
     # Authentication
     AUTH_LOGIN = "auth.login"
+    CUSTOMER_KNOWLEDGE_CREATE = "customer_knowledge.create"
+    CUSTOMER_KNOWLEDGE_UPDATE = "customer_knowledge.update"
+    CUSTOMER_KNOWLEDGE_DELETE = "customer_knowledge.delete"
     AUTH_LOGIN_FAILED = "auth.login_failed"
     AUTH_LOGOUT = "auth.logout"
 

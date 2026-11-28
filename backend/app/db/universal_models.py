@@ -1,4 +1,6 @@
 from datetime import datetime
+from typing import Any
+from typing import Dict
 from typing import List
 from typing import Optional
 
@@ -7,6 +9,7 @@ from sqlalchemy import JSON
 from sqlalchemy import Column
 from sqlalchemy import Float
 from sqlalchemy import ForeignKey
+from sqlalchemy import Index
 from sqlalchemy import LargeBinary
 from sqlalchemy import String
 from sqlalchemy import Text
@@ -1266,3 +1269,47 @@ class CustomerShuffleIntegration(SQLModel, table=True):
     # See note on CustomerNotificationRoute.dispatches — back_populates
     # removed for AsyncSession compatibility.
     routes: list["CustomerNotificationRoute"] = Relationship(sa_relationship_kwargs={"overlaps": "shuffle_integration"})
+
+
+class CustomerKnowledgeItem(SQLModel, table=True):
+    """A fact the SOC recorded about a customer (talon-analyst SPEC D98, plan K1): a network zone, a
+    public range, what a host is for, activity to expect.
+
+    One table for every kind: ``value`` is JSON, validated per kind on write by the models in
+    ``customer_knowledge/schema/customer_knowledge.py``, so a new kind needs no migration.
+    talon-analyst reads ``approved`` rows over its read-only MySQL user and matches them to each
+    alert; it never writes here. ``status`` and ``source`` have no default: the service sets them, and
+    a row written any other way must not come out approved. They stay ``approved`` and ``soc`` until
+    customer editing brings its approval queue. ``natural_key`` is the service's: what makes two facts
+    of a customer the same one. ``version`` rises on each change, so two edits can't undo each other.
+    Rows are hard-deleted; the audit log keeps what they held. ``expires_at`` is naive UTC.
+    """
+
+    __tablename__ = "customer_knowledge_item"
+    __table_args__ = (
+        Index("ix_customer_knowledge_item_customer_kind", "customer_code", "kind"),
+        UniqueConstraint("customer_code", "natural_key", name="uq_customer_knowledge_item_natural_key"),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    # CASCADE: deleting a customer deletes its facts, and a plain FK would block it.
+    customer_code: str = Field(
+        sa_column=Column(
+            String(50),
+            ForeignKey("customers.customer_code", ondelete="CASCADE"),
+            nullable=False,
+        ),
+    )
+    branch: str = Field(max_length=32, nullable=False)
+    kind: str = Field(max_length=32, nullable=False)
+    value: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    note: Optional[str] = Field(default=None, max_length=200, nullable=True)
+    status: str = Field(max_length=16, nullable=False)
+    source: str = Field(max_length=16, nullable=False)
+    natural_key: Optional[str] = Field(default=None, max_length=320, nullable=True)
+    version: int = Field(default=1, nullable=False)
+    expires_at: Optional[datetime] = Field(default=None, nullable=True)
+    created_at: datetime = Field(default_factory=now_utc, nullable=False)
+    updated_at: datetime = Field(default_factory=now_utc, nullable=False)
+    updated_by_user_id: Optional[int] = Field(default=None, nullable=True)
+    updated_by_username: Optional[str] = Field(default=None, max_length=256, nullable=True)
