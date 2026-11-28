@@ -119,6 +119,24 @@ def filter_and_create_throughput_metrics(merged_metrics: dict) -> list:
     return throughput_metrics_list
 
 
+def _ensure_metrics_payload(throughput_metrics_collected: dict) -> None:
+    """
+    Raise a 502 when Graylog answered with something other than the metrics document
+    (for instance an error document for a connector account without permission).
+
+    Only the shape is logged, never the upstream body, which may carry secrets.
+    """
+    data = throughput_metrics_collected.get("data")
+    if throughput_metrics_collected.get("success") and isinstance(data, dict) and "gauges" in data and "counters" in data:
+        return
+    logger.warning(
+        "Graylog metrics response is not usable: "
+        f"success={throughput_metrics_collected.get('success')} "
+        f"keys={sorted(data) if isinstance(data, dict) else type(data).__name__}",
+    )
+    raise HTTPException(status_code=502, detail="Không lấy được số liệu từ dịch vụ thu thập log")
+
+
 async def get_metrics() -> GraylogMetricsResponse:
     """
     Retrieves metrics from Graylog.
@@ -136,6 +154,7 @@ async def get_metrics() -> GraylogMetricsResponse:
         fetch_metrics_from_graylog(),
         fetch_uncommitted_journal_entries(),
     )
+    _ensure_metrics_payload(throughput_metrics_collected)
     try:
         if throughput_metrics_collected["success"] and uncommitted_journal_entries_collected["success"]:
             merged_metrics = merge_metrics_data(throughput_metrics_collected)

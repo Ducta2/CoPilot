@@ -1,4 +1,6 @@
 from datetime import datetime
+from typing import Any
+from typing import Dict
 from typing import List
 from typing import Optional
 
@@ -7,6 +9,7 @@ from sqlalchemy import JSON
 from sqlalchemy import Column
 from sqlalchemy import Float
 from sqlalchemy import ForeignKey
+from sqlalchemy import Index
 from sqlalchemy import LargeBinary
 from sqlalchemy import String
 from sqlalchemy import Text
@@ -1266,3 +1269,147 @@ class CustomerShuffleIntegration(SQLModel, table=True):
     # See note on CustomerNotificationRoute.dispatches — back_populates
     # removed for AsyncSession compatibility.
     routes: list["CustomerNotificationRoute"] = Relationship(sa_relationship_kwargs={"overlaps": "shuffle_integration"})
+
+
+class CustomerKnowledgeItem(SQLModel, table=True):
+    """A fact the SOC recorded about a customer (talon-analyst SPEC D98, plan K1): a network zone, a
+    public range, what a host is for, activity to expect.
+
+    One table for every kind: ``value`` is JSON, validated per kind on write by the models in
+    ``customer_knowledge/schema/customer_knowledge.py``, so a new kind needs no migration.
+    talon-analyst reads ``approved`` rows over its read-only MySQL user and matches them to each
+    alert; it never writes here. ``status`` and ``source`` have no default: the service sets them, and
+    a row written any other way must not come out approved. They stay ``approved`` and ``soc`` until
+    customer editing brings its approval queue. ``natural_key`` is the service's: what makes two facts
+    of a customer the same one. ``version`` rises on each change, so two edits can't undo each other.
+    Rows are hard-deleted; the audit log keeps what they held. ``expires_at`` is naive UTC.
+    """
+
+    __tablename__ = "customer_knowledge_item"
+    __table_args__ = (
+        Index("ix_customer_knowledge_item_customer_kind", "customer_code", "kind"),
+        UniqueConstraint("customer_code", "natural_key", name="uq_customer_knowledge_item_natural_key"),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    # CASCADE: deleting a customer deletes its facts, and a plain FK would block it.
+    customer_code: str = Field(
+        sa_column=Column(
+            String(50),
+            ForeignKey("customers.customer_code", ondelete="CASCADE"),
+            nullable=False,
+        ),
+    )
+    branch: str = Field(max_length=32, nullable=False)
+    kind: str = Field(max_length=32, nullable=False)
+    value: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    note: Optional[str] = Field(default=None, max_length=200, nullable=True)
+    status: str = Field(max_length=16, nullable=False)
+    source: str = Field(max_length=16, nullable=False)
+    natural_key: Optional[str] = Field(default=None, max_length=320, nullable=True)
+    version: int = Field(default=1, nullable=False)
+    expires_at: Optional[datetime] = Field(default=None, nullable=True)
+    created_at: datetime = Field(default_factory=now_utc, nullable=False)
+    updated_at: datetime = Field(default_factory=now_utc, nullable=False)
+    updated_by_user_id: Optional[int] = Field(default=None, nullable=True)
+    updated_by_username: Optional[str] = Field(default=None, max_length=256, nullable=True)
+
+
+class CustomerPortalSocRequestSettings(SQLModel, table=True):
+    """Per-customer switch for "Ask the SOC" in the Customer Portal (#1305).
+
+    **Opt-in** like the other portal switches: a customer with no row cannot ask. The
+    daily limit counts the customer's questions over any 24 hours (NULL = unlimited);
+    it is never shown to the customer. Read through ``customer_portal/services/soc_requests.py``.
+    """
+
+    __tablename__ = "customer_portal_soc_request_settings"
+
+    id: Optional[int] = Field(primary_key=True)
+    # CASCADE: deleting a customer deletes only its row, and a plain FK would block it.
+    customer_code: str = Field(
+        sa_column=Column(
+            String(50),
+            ForeignKey("customers.customer_code", ondelete="CASCADE"),
+            nullable=False,
+            index=True,
+            unique=True,
+        ),
+    )
+    enabled: bool = Field(default=False, nullable=False)
+    daily_request_limit: Optional[int] = Field(default=None)
+    updated_at: datetime = Field(default_factory=now_utc)
+    updated_by: Optional[int] = Field(default=None)  # User ID who last updated
+
+
+class CustomerPortalSocRequest(SQLModel, table=True):
+    """One question a portal user asked the SOC about an alert or a case (#1305).
+
+    Exactly one of ``case_id`` / ``alert_id`` is the question's target: a question on a
+    case, or on an alert the customer chose to keep it on. A question asked from an alert
+    but filed on a case (new or already open) has ``case_id`` set and the alert in
+    ``origin_alert_id``, informational only. Both targets cascade: a deleted alert or case
+    takes its questions with it. The question's text is also left as a comment on the
+    target, signed by the user, so the SOC answers where it already works.
+
+    ``status`` is ``open`` until the SOC answers: its first comment on the target after
+    the question, or an analyst marking it answered (a reply by phone).
+    """
+
+    __tablename__ = "customer_portal_soc_request"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    customer_code: str = Field(
+        sa_column=Column(String(50), ForeignKey("customers.customer_code", ondelete="CASCADE"), nullable=False, index=True),
+    )
+    case_id: Optional[int] = Field(
+        default=None,
+        sa_column=Column(ForeignKey("incident_management_case.id", ondelete="CASCADE"), nullable=True, index=True),
+    )
+    alert_id: Optional[int] = Field(
+        default=None,
+        sa_column=Column(ForeignKey("incident_management_alert.id", ondelete="CASCADE"), nullable=True, index=True),
+    )
+    origin_alert_id: Optional[int] = Field(default=None, nullable=True)
+    question: str = Field(sa_column=Column(Text, nullable=False))
+    urgency: str = Field(max_length=16, nullable=False, default="normal")
+    status: str = Field(max_length=16, nullable=False, default="open", index=True)
+    comment_id: Optional[int] = Field(default=None, nullable=True)
+    requested_by_user_id: Optional[int] = Field(default=None)
+    requested_by: str = Field(max_length=256, nullable=False)
+    requested_at: datetime = Field(default_factory=now_utc, index=True)
+    answered_at: Optional[datetime] = Field(default=None, nullable=True)
+    # Who answered, for the SOC; never sent to the portal.
+    answered_by: Optional[str] = Field(default=None, max_length=256, nullable=True)
+    answered_via: Optional[str] = Field(default=None, max_length=16, nullable=True)  # comment | manual
+
+
+class SelfServiceEdrPackage(SQLModel, table=True):
+    """An EDR installer package a customer issued itself (Self Service, Level 1).
+
+    Level 1 keeps the record only: the install command still uses the customer's shared
+    enrollment password, so neither ``expires_at`` nor ``max_installs`` is enforced on the
+    monitoring server, and revoking only hides the package. ``status`` is not stored: it is
+    computed when read (``revoked`` if ``revoked_at``, ``expired`` past ``expires_at``, else
+    ``active``), so no scheduled job has to flip it. ``enrolled`` stays 0 until the agent sync
+    counts enrollments (design section 6, not built yet). Times are naive UTC.
+    Read and written through ``self_service/services/edr_packages.py``.
+    """
+
+    __tablename__ = "self_service_edr_packages"
+
+    id: str = Field(sa_column=Column(String(20), primary_key=True))  # PKG- + 8 base32 characters
+    # CASCADE: deleting a customer deletes its packages, and a plain FK would block it.
+    customer_code: str = Field(
+        sa_column=Column(String(50), ForeignKey("customers.customer_code", ondelete="CASCADE"), nullable=False, index=True),
+    )
+    platform: str = Field(max_length=16, nullable=False)  # windows | linux | macos
+    arch: str = Field(max_length=16, nullable=False)  # x64 | arm64 | x86
+    group: str = Field(max_length=64, nullable=False)
+    max_installs: int = Field(nullable=False)
+    enrolled: int = Field(default=0, nullable=False)
+    created_by: str = Field(max_length=256, nullable=False)
+    created_at: datetime = Field(nullable=False)
+    expires_at: datetime = Field(nullable=False)
+    revoked_at: Optional[datetime] = Field(default=None, nullable=True)
+    revoked_by: Optional[str] = Field(default=None, max_length=256, nullable=True)

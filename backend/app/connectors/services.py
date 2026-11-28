@@ -452,8 +452,12 @@ class ConnectorServices:
             # Update the connector record
             connector_record.connector_url = connector.connector_url
             connector_record.connector_username = connector.connector_username
-            connector_record.connector_password = connector.connector_password
-            connector_record.connector_api_key = connector.connector_api_key
+            # Secrets are write-only: the API does not return them, so an update that
+            # omits one (None or "") must keep the stored value instead of wiping it.
+            if connector.connector_password:
+                connector_record.connector_password = connector.connector_password
+            if connector.connector_api_key:
+                connector_record.connector_api_key = connector.connector_api_key
             connector_record.connector_extra_data = connector.connector_extra_data
             connector_record.connector_last_updated = datetime.now()
 

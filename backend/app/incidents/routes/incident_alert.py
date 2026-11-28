@@ -15,6 +15,7 @@ from app.active_response.routes.graylog import verify_graylog_header
 from app.active_response.schema.graylog import GraylogThresholdEventNotification
 from app.auth.models.users import User
 from app.auth.utils import AuthHandler
+from app.connectors.wazuh_indexer.utils.universal import wazuh_indexer_client_async
 from app.db.db_session import get_db
 from app.incidents.schema.alert_collection import AlertsPayload
 from app.incidents.schema.incident_alert import AlertDetailsResponse
@@ -103,7 +104,8 @@ async def get_alerts_not_created_route() -> AlertsPayload:
     Returns:
         List[AlertPayloadItem]: The list of alerts that have not been created in CoPilot.
     """
-    return await get_alerts_not_created_in_copilot()
+    alerts_payload, _total_remaining = await get_alerts_not_created_in_copilot()
+    return alerts_payload
 
 
 @incidents_alerts_router.post(
@@ -272,69 +274,75 @@ async def create_alert_auto_route(
 
     logger.info(f"Starting auto alert creation with batch_size={batch_size}, max_batches={max_batches}")
 
-    for batch_num in range(max_batches):
-        # Fetch the next batch
-        alerts_payload, total_remaining = await get_alerts_not_created_in_copilot(batch_size=batch_size)
+    # One indexer client for the whole run: every batch and every alert reuses it, and it is closed once at the end.
+    async with wazuh_indexer_client_async() as es_client:
+        for batch_num in range(max_batches):
+            # Fetch the next batch
+            alerts_payload, total_remaining = await get_alerts_not_created_in_copilot(batch_size=batch_size, es_client=es_client)
 
-        if len(alerts_payload.alerts) == 0:
-            logger.info(f"No more alerts to process after {batches_processed} batches")
-            break
+            if len(alerts_payload.alerts) == 0:
+                logger.info(f"No more alerts to process after {batches_processed} batches")
+                break
 
-        logger.info(f"Processing batch {batch_num + 1}/{max_batches}: {len(alerts_payload.alerts)} alerts.)")
-        logger.info(f"Total remaining alerts after this batch: {total_remaining}")
+            logger.info(f"Processing batch {batch_num + 1}/{max_batches}: {len(alerts_payload.alerts)} alerts.)")
+            logger.info(f"Total remaining alerts after this batch: {total_remaining}")
 
-        # Process this batch
-        batch_created = 0
-        batch_failed = 0
+            # Process this batch
+            batch_created = 0
+            batch_failed = 0
 
-        for alert in alerts_payload.alerts:
-            try:
-                create_alert_request = CreateAlertRequest(
-                    index_name=await get_original_alert_index_name(origin_context=alert.source.origin_context),
-                    alert_id=await get_original_alert_id(alert.source.origin_context),
-                )
-
-                alert_id = await create_alert(create_alert_request, session)
-
-                # Add the CoPilot alert ID to Graylog event index
-                await add_copilot_alert_id(index_data=CreateAlertRequest(index_name=alert.index, alert_id=alert.id), alert_id=alert_id)
-
-                batch_created += 1
-                total_created += 1
-
-            except ValidationError as e:
-                # Pydantic validation failure — log per-field detail so a misshapen
-                # index document is fast to diagnose (which field, what was provided,
-                # which constraint failed).
-                logger.error(
-                    f"Failed to create alert {alert.id} from index {alert.index}: "
-                    f"Pydantic validation failed in {len(e.errors())} field(s)",
-                )
-                for err in e.errors():
-                    loc = ".".join(str(x) for x in err.get("loc", ()))
-                    inp = err.get("input", "<not captured>")
-                    inp_repr = repr(inp)[:200]  # truncate verbose inputs
-                    logger.error(
-                        f"  field={loc} type={err.get('type')} msg={err.get('msg')} input={inp_repr}",
+            for alert in alerts_payload.alerts:
+                try:
+                    create_alert_request = CreateAlertRequest(
+                        index_name=await get_original_alert_index_name(origin_context=alert.source.origin_context),
+                        alert_id=await get_original_alert_id(alert.source.origin_context),
                     )
-                batch_failed += 1
-                total_failed += 1
-            except Exception as e:
-                # Any other error — preserve the full traceback so the source line
-                # of the failure is in the log, not just the message.
-                logger.opt(exception=True).error(
-                    f"Failed to create alert {alert.id} from index {alert.index}: " f"{type(e).__name__}: {e}",
-                )
-                batch_failed += 1
-                total_failed += 1
 
-        batches_processed += 1
-        logger.info(f"Batch {batch_num + 1} complete: {batch_created} created, {batch_failed} failed")
+                    alert_id = await create_alert(create_alert_request, session, es_client=es_client)
 
-        # If we processed fewer alerts than the batch size, we're done
-        if len(alerts_payload.alerts) < batch_size:
-            logger.info("Processed final batch (fewer alerts than batch size)")
-            break
+                    # Add the CoPilot alert ID to Graylog event index
+                    await add_copilot_alert_id(
+                        index_data=CreateAlertRequest(index_name=alert.index, alert_id=alert.id),
+                        alert_id=alert_id,
+                        es_client=es_client,
+                    )
+
+                    batch_created += 1
+                    total_created += 1
+
+                except ValidationError as e:
+                    # Pydantic validation failure — log per-field detail so a misshapen
+                    # index document is fast to diagnose (which field, what was provided,
+                    # which constraint failed).
+                    logger.error(
+                        f"Failed to create alert {alert.id} from index {alert.index}: "
+                        f"Pydantic validation failed in {len(e.errors())} field(s)",
+                    )
+                    for err in e.errors():
+                        loc = ".".join(str(x) for x in err.get("loc", ()))
+                        inp = err.get("input", "<not captured>")
+                        inp_repr = repr(inp)[:200]  # truncate verbose inputs
+                        logger.error(
+                            f"  field={loc} type={err.get('type')} msg={err.get('msg')} input={inp_repr}",
+                        )
+                    batch_failed += 1
+                    total_failed += 1
+                except Exception as e:
+                    # Any other error — preserve the full traceback so the source line
+                    # of the failure is in the log, not just the message.
+                    logger.opt(exception=True).error(
+                        f"Failed to create alert {alert.id} from index {alert.index}: " f"{type(e).__name__}: {e}",
+                    )
+                    batch_failed += 1
+                    total_failed += 1
+
+            batches_processed += 1
+            logger.info(f"Batch {batch_num + 1} complete: {batch_created} created, {batch_failed} failed")
+
+            # If we processed fewer alerts than the batch size, we're done
+            if len(alerts_payload.alerts) < batch_size:
+                logger.info("Processed final batch (fewer alerts than batch size)")
+                break
 
     message = f"Processed {batches_processed} batches: {total_created} alerts created, {total_failed} failed"
 

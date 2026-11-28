@@ -29,6 +29,7 @@ from app.connectors.wazuh_indexer.utils.universal import (
 )
 from app.connectors.wazuh_indexer.utils.universal import get_index_mappings_key_names
 from app.connectors.wazuh_indexer.utils.universal import get_index_source
+from app.customer_portal.services.soc_request_answers import mark_answered_by_comment
 from app.customer_provisioning.routes.provision import check_customer_exists
 from app.data_store.data_store_operations import (
     list_case_report_template_data_store_files,
@@ -762,6 +763,14 @@ def _ensure_can_modify_comment(user: User, author: str) -> None:
         raise HTTPException(status_code=403, detail="You can only modify your own comments")
 
 
+async def _answer_customer_questions(entity_type: str, entity_id: int, user: User, db: AsyncSession) -> None:
+    """Best effort: the comment is already written, so a failing hook is logged, never raised."""
+    try:
+        await mark_answered_by_comment(entity_type, entity_id, user, db)
+    except Exception as e:  # noqa: BLE001 - the question's state never refuses the SOC's comment
+        logger.warning(f"Could not mark the customer questions on {entity_type} {entity_id} answered: {e}")
+
+
 @incidents_db_operations_router.post(
     "/alert/comment",
     response_model=CommentResponse,
@@ -786,6 +795,8 @@ async def create_comment_endpoint(
     await SlaLifecycleRecorder().alert_action(comment.alert_id, LifecycleAction.COMMENTED, Actor.from_user(current_user))
     # A customer answering an alert the SOC waits on hands it back (and resumes its SLA).
     await resume_alert_on_reply(comment.alert_id, current_user, db)
+    # The SOC's comment answers the customer's open questions on this alert (#1305).
+    await _answer_customer_questions("alert", comment.alert_id, current_user, db)
     return CommentResponse(comment=created, success=True, message="Comment created successfully")
 
 
@@ -882,6 +893,8 @@ async def create_case_comment_endpoint(
     )
     await SlaLifecycleRecorder().case_action(comment.case_id, LifecycleAction.COMMENTED, Actor.from_user(current_user))
     await resume_case_on_reply(comment.case_id, current_user, db)
+    # The SOC's comment answers the customer's open questions on this case (#1305).
+    await _answer_customer_questions("case", comment.case_id, current_user, db)
 
     return CaseCommentResponse(comment=created, success=True, message="Case comment created successfully")
 

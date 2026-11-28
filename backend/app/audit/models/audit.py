@@ -35,6 +35,9 @@ class AuditAction(str, Enum):
 
     # Authentication
     AUTH_LOGIN = "auth.login"
+    CUSTOMER_KNOWLEDGE_CREATE = "customer_knowledge.create"
+    CUSTOMER_KNOWLEDGE_UPDATE = "customer_knowledge.update"
+    CUSTOMER_KNOWLEDGE_DELETE = "customer_knowledge.delete"
     AUTH_LOGIN_FAILED = "auth.login_failed"
     AUTH_LOGOUT = "auth.logout"
 
@@ -68,6 +71,14 @@ class AuditAction(str, Enum):
     # File data store
     DATASTORE_FILE_CREATE = "datastore.file_create"
     DATASTORE_FILE_DELETE = "datastore.file_delete"
+    # "Ask the SOC" from the Customer Portal (#1305): a portal user's question (refusals as
+    # failures), the SOC marking one answered by hand, and the per-customer switch.
+    SOC_REQUEST_CREATE = "soc_request.create"
+    SOC_REQUEST_ANSWER = "soc_request.answer"
+    SOC_REQUEST_SETTINGS_UPDATE = "soc_request.settings_update"
+    # Self Service: EDR installer packages a customer issues and revokes itself (Level 1).
+    SELF_SERVICE_EDR_PACKAGE_CREATE = "self_service.edr_package_create"
+    SELF_SERVICE_EDR_PACKAGE_REVOKE = "self_service.edr_package_revoke"
 
 
 class AuditResult(str, Enum):
