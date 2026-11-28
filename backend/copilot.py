@@ -106,6 +106,7 @@ from app.routers import portainer
 from app.routers import sap_siem
 from app.routers import scheduler
 from app.routers import scoutsuite
+from app.routers import self_service
 from app.routers import shuffle
 from app.routers import siem
 from app.routers import soc_management
@@ -332,6 +333,7 @@ api_router.include_router(uba.router)
 api_router.include_router(customer_waf.router)
 api_router.include_router(customer_knowledge.router)
 api_router.include_router(soc_management.router)
+api_router.include_router(self_service.router)
 
 # Include the APIRouter in the FastAPI app
 app.include_router(api_router)

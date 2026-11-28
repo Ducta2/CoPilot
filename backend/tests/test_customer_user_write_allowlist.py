@@ -56,6 +56,9 @@ ALLOWED_CUSTOMER_USER_WRITES = frozenset(
         # Ask the SOC about one of their alerts or cases, where the customer allows it (#1305).
         ("POST", "/api/customer_portal/soc_requests/alert/{alert_id}"),
         ("POST", "/api/customer_portal/soc_requests/case/{case_id}"),
+        # Self Service: issue and revoke their own customer's EDR installer packages (Level 1, records only).
+        ("POST", "/api/self_service/edr_packages"),
+        ("DELETE", "/api/self_service/edr_packages/{package_id}"),
         # Asset criticality of the customer's own agents.
         ("POST", "/api/agents/{agent_id}/critical"),
         ("POST", "/api/agents/{agent_id}/noncritical"),
